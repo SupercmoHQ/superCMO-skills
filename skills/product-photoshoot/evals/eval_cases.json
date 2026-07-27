@@ -1,0 +1,19 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. One case per mode, plus negatives.",
+  "schema_version": 2,
+  "trigger_keywords": ["product shot", "product photo", "product photography", "packshot", "studio shot", "lifestyle shot", "product in use", "closeup of", "beauty shot", "pinterest pin", "pinnable", "hero banner", "website header", "landing page banner", "carousel", "slide post", "ad pack", "ad creatives", "paid social", "model wearing", "virtual try-on", "on-model", "lookbook", "levitating", "floating product", "splash", "surreal product", "restyle", "seasonal version", "make this look"],
+  "cases": [
+    { "id": "tc_trigger_01", "query": "create a clean studio product shot of my coffee bag on a white background", "expected_trigger": true },
+    { "id": "tc_trigger_02", "query": "make a lifestyle shot of my candle on a cozy coffee table", "expected_trigger": true },
+    { "id": "tc_trigger_03", "query": "closeup of a hand applying my serum to the cheek", "expected_trigger": true },
+    { "id": "tc_trigger_04", "query": "design a pinterest pin for my skincare line", "expected_trigger": true },
+    { "id": "tc_trigger_05", "query": "make a hero banner for my landing page with my product", "expected_trigger": true },
+    { "id": "tc_trigger_06", "query": "create a 5-slide carousel showing my product features", "expected_trigger": true },
+    { "id": "tc_trigger_07", "query": "generate an ad pack with different hooks for paid social", "expected_trigger": true },
+    { "id": "tc_trigger_08", "query": "show my necklace on a model for the lookbook", "expected_trigger": true },
+    { "id": "tc_trigger_09", "query": "make a surreal floating product shot of my perfume bottle", "expected_trigger": true },
+    { "id": "tc_trigger_10", "query": "restyle this product photo for a christmas seasonal version", "expected_trigger": true },
+    { "id": "tc_ignore_01", "query": "write a product description for my listing", "expected_trigger": false },
+    { "id": "tc_ignore_02", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

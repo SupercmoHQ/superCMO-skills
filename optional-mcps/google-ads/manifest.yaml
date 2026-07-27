@@ -1,0 +1,25 @@
+manifest_version: 1
+name: google-ads
+description: "Google Ads — reporting (GAQL) + campaign management via a self-hosted stdio server."
+category: [ads, spend]
+install:
+  type: git
+  # TODO(team): pin the real self-hosted Google Ads MCP repo + tag before launch.
+  url: "https://github.com/SupercmoHQ/google-ads-mcp"
+  ref: "v1.0.0"
+  bootstrap: ["uv sync"]
+transport:
+  type: stdio
+  command: "uv"
+  args: ["run", "--directory", "${INSTALL_DIR}", "google-ads-mcp"]
+auth:
+  type: api_key
+  # stdio subprocesses get a STRIPPED env (Hermes _build_safe_env), so every credential must
+  # be declared here; `supercmo connect` writes them into the server's `env:` block as ${VAR}.
+  env:
+    - {name: GOOGLE_ADS_DEVELOPER_TOKEN, prompt: "Google Ads developer token", secret: true}
+    - {name: GOOGLE_ADS_CLIENT_ID,       prompt: "OAuth client ID",             secret: false}
+    - {name: GOOGLE_ADS_CLIENT_SECRET,   prompt: "OAuth client secret",         secret: true}
+    - {name: GOOGLE_ADS_REFRESH_TOKEN,   prompt: "OAuth refresh token",         secret: true}
+tools:
+  default_enabled: ["run_gaql", "list_campaigns"]

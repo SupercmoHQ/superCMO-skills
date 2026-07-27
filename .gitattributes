@@ -1,0 +1,3 @@
+# The public projection never ships internal/ — `git archive` excludes it natively,
+# so even a publish that forgets to strip internal/ cannot leak it.
+internal/ export-ignore

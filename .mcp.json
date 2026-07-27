@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "supercmo": {
+      "command": "python3",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"
+      ],
+      "env": {
+        "FAL_KEY": "${FAL_KEY:-}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY:-}",
+        "GEMINI_API_KEY": "${GEMINI_API_KEY:-}",
+        "XAI_API_KEY": "${XAI_API_KEY:-}",
+        "ELEVENLABS_API_KEY": "${ELEVENLABS_API_KEY:-}",
+        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY:-}",
+        "SUPERCMO_API_KEY": "${SUPERCMO_API_KEY:-}"
+      }
+    }
+  }
+}

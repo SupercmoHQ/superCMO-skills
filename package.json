@@ -1,0 +1,26 @@
+{
+  "name": "@supercmo/install",
+  "version": "0.1.0",
+  "description": "Install the SuperCMO plugin (MCP server + skills + agent + command) into any popular AI-agent host.",
+  "bin": {
+    "supercmo-install": "bin/install.js"
+  },
+  "files": [
+    "bin/",
+    "mcp-server/",
+    "scripts/",
+    "skills/",
+    "agents/",
+    "commands/",
+    "AGENTS.md",
+    "GEMINI.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/SupercmoHQ/superCMO-skills",
+  "scripts": {
+    "test": "node --test bin/lib/*.test.js"
+  }
+}

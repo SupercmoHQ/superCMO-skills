@@ -1,0 +1,21 @@
+name: Skill request / idea
+description: Propose a new skill or an improvement to an existing one.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What marketing job should this skill do?
+      description: Describe the task and when an operator would reach for it.
+    validations:
+      required: true
+  - type: input
+    id: category
+    attributes:
+      label: Category
+      placeholder: ads / seo / social / creative / analytics
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Existing tools it would call, references, prior art.

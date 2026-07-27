@@ -1,0 +1,28 @@
+# Build and package output
+dist/
+
+# Python caching
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local agents and test staging dirs
+.supercmo/
+.claude/
+.hermes/
+
+# System specific files
+.DS_Store
+Thumbs.db
+
+# Environments
+.env
+.env.*
+
+# host-smoke generated media (not committed)
+_signoff-media/
+.gstack/

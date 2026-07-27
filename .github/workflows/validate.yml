@@ -1,0 +1,50 @@
+# Blocking validation on every push/PR: structural + frontmatter lint (quick_validate)
+# + the listing gate (scripts smoke + spend/social --dry-run; listing_gate.py),
+# plus the Agent Skills spec validator (skills-ref) as an additional check.
+name: Validate
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Structural + frontmatter validation (blocking)
+        run: python3 scripts/quick_validate.py
+
+      - name: Listing gate — scripts smoke + spend/social --dry-run (blocking)
+        run: |
+          python3 scripts/listing_gate.py --selftest   # regression-test the gate logic
+          python3 scripts/listing_gate.py
+
+      - name: Shared-client seam — no raw vendor HTTP (blocking)
+        run: python3 scripts/check_shared_client.py
+
+      - name: Extension gate — MCP manifests + plugin structure (blocking)
+        run: |
+          pip install pyyaml
+          python3 scripts/check_extensions.py --selftest   # regression-test the gate logic
+          python3 scripts/check_extensions.py
+
+      - name: Agent Skills spec validation (skills-ref)
+        # Not yet blocking: the skills-ref CLI interface is young — verify it, then
+        # remove continue-on-error to make it a hard gate.
+        continue-on-error: true
+        run: |
+          pip install skills-ref 2>/dev/null \
+            || pip install "git+https://github.com/agentskills/agentskills.git#subdirectory=skills-ref" 2>/dev/null \
+            || { echo "skills-ref not installable yet — skipping"; exit 0; }
+          for d in skills/*/; do
+            [ -f "${d}SKILL.md" ] && skills-ref validate "$d" || true
+          done
+
+      - name: Trigger evals (advisory)
+        # should-trigger / should-not-trigger per skill. Reports on PRs; never gates merge.
+        continue-on-error: true
+        run: python3 tests/evals/run_eval.py

@@ -1,0 +1,15 @@
+{
+  "_comment": "Advisory trigger evals for tts-generation — deterministic keyword match, not merge-gating. One case per trigger surface, plus cross-skill negatives.",
+  "schema_version": 2,
+  "trigger_keywords": ["text to speech", "text-to-speech", "tts", "voiceover", "voice over", "voice-over", "narration", "narrate", "aloud", "read aloud", "read this aloud", "read it aloud", "speak this", "say this aloud", "ad read", "spoken audio"],
+  "cases": [
+    { "id": "tc_trigger_01", "query": "create a voiceover for our product video", "expected_trigger": true },
+    { "id": "tc_trigger_02", "query": "read this script aloud in a warm, friendly voice", "expected_trigger": true },
+    { "id": "tc_trigger_03", "query": "turn this text to speech for the ad", "expected_trigger": true },
+    { "id": "tc_trigger_04", "query": "narrate our brand story in an upbeat tone", "expected_trigger": true },
+    { "id": "tc_trigger_05", "query": "I need spoken audio of this announcement", "expected_trigger": true },
+    { "id": "tc_trigger_06", "query": "do an ad read of this promo copy", "expected_trigger": true },
+    { "id": "tc_ignore_01", "query": "generate an image of a brand logo", "expected_trigger": false },
+    { "id": "tc_ignore_02", "query": "make a video of a sunset over the ocean", "expected_trigger": false }
+  ]
+}

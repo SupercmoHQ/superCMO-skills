@@ -1,0 +1,32 @@
+{
+  "_comment": "Additive product metadata read by the hosted catalog. NOT required for standalone or native plugin install. Repo-as-one-plugin: the whole repo installs as the 'supercmo' plugin; all skills under skills/ ship with it. proof_points: process/framework claims only, no dollar figures.",
+  "keyword": "SUPERCMO",
+  "target_audience": "Indie hackers and SMBs running their own marketing",
+  "pain_points": [
+    "Producing on-brand marketing media — images, video, voiceover — without a designer or agency"
+  ],
+  "value_proposition": "An AI marketing team that generates campaign-ready visuals and audio on your own API keys",
+  "proof_points": [
+    "Provider-blind routing picks the right model per brief; bring-your-own-keys, runs in any SKILL.md agent"
+  ],
+  "visible": false,
+  "skills": [
+    "generating-images",
+    "video-generation",
+    "generating-ugc-videos",
+    "analyzing-products",
+    "tts-generation",
+    "product-photoshoot",
+    "supercmo-setup"
+  ],
+  "agents": [
+    "router.md"
+  ],
+  "references": [],
+  "scripts": [
+    "supercmo_env.py"
+  ],
+  "mcp_servers": [
+    "supercmo"
+  ]
+}

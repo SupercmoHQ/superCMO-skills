@@ -1,0 +1,55 @@
+[project]
+name = "supercmo-skills"
+version = "0.1.6"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+description = "SuperCMO media client + Hermes binding (image, video, tts): stdlib-only routing over BYO-direct vendor keys or one managed SuperCMO key. Imported by the MCP server, the OSS Hermes app, and the hosted proxy."
+readme = "README.md"
+authors = [{ name = "Kshitiz Kumar", email = "kshitiz10.kumar@gmail.com" }]
+keywords = [
+    "ai",
+    "agent",
+    "marketing",
+    "media",
+    "image-generation",
+    "video-generation",
+    "tts",
+    "byo-keys",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.11"
+dependencies = [
+] # stdlib-only by design (vendors into the Claude plugin with no install step)
+
+[project.urls]
+Homepage = "https://github.com/SupercmoHQ/superCMO-skills"
+Repository = "https://github.com/SupercmoHQ/superCMO-skills"
+Issues = "https://github.com/SupercmoHQ/superCMO-skills/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# The lib (scripts/supercmo_skills) installs as `supercmo_skills`; supercmo_env.py installs as a
+# top-level module (supercmo_skills imports it). The OSS binding plugin + media skills ride along
+# as package data under supercmo_skills/_assets so the OSS app can materialize them into HERMES_HOME.
+[tool.hatch.build.targets.wheel]
+packages = ["scripts/supercmo_skills"]
+exclude = ["**/__pycache__", "**/*.pyc"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"scripts/supercmo_env.py" = "supercmo_env.py"
+# E3: map whole dirs, not per-skill — a new skills/<x>/ or hermes-plugins/<y>/ ships with
+# zero edits here (hatchling force-include copies recursively; caches are pruned by `exclude`).
+# Media tools ship via the MCP server (below), NOT a Hermes plugin — one binding, no native-slot
+# override, no schema duplication. (The former `hermes-plugins` force-include was removed here.)
+"skills" = "supercmo_skills/_assets/skills"
+"optional-mcps" = "supercmo_skills/_assets/optional-mcps"   # D2 marketing MCP catalog
+"mcp-server" = "supercmo_skills/_assets/mcp-server"         # OSS media/analysis tools (MCP delivery)

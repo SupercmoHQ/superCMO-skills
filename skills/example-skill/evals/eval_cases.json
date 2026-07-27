@@ -1,0 +1,11 @@
+{
+  "_comment": "TEMPLATE advisory trigger evals (schema_version 2). should-trigger + should-not-trigger cases checked deterministically against trigger_keywords (no LLM). Advisory only — not merge-gating; excluded from the shipped tarball. Delete with the example skill once real skills exist.",
+  "schema_version": 2,
+  "trigger_keywords": ["example skill", "example template", "demo skill"],
+  "cases": [
+    { "id": "tc_trigger_01", "query": "run the example skill on this input", "expected_trigger": true },
+    { "id": "tc_trigger_02", "query": "use the example template to scaffold a new skill", "expected_trigger": true },
+    { "id": "tc_ignore_01", "query": "what's the weather in Tokyo today", "expected_trigger": false },
+    { "id": "tc_ignore_02", "query": "summarize this PDF document", "expected_trigger": false }
+  ]
+}

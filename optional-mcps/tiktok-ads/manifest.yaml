@@ -1,0 +1,15 @@
+manifest_version: 1
+name: tiktok-ads
+description: "TikTok Ads — campaigns, reporting, creative management."
+category: [ads, spend, publish]
+transport:
+  type: http
+  # TODO(team): confirm the TikTok Ads MCP endpoint (OAuth-remote) before launch.
+  url: "https://mcp.tiktok.com/ads"
+auth:
+  type: oauth
+  scopes: ["advertiser.read", "campaign.write"]
+tools:
+  default_enabled: ["list_campaigns", "get_reports"]
+post_install: |
+  Authorize in your browser:  supercmo connect tiktok-ads

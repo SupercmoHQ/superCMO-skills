@@ -1,0 +1,17 @@
+manifest_version: 1
+name: postiz
+description: "Postiz — schedule + publish social posts across channels (self-hosted, bearer)."
+category: [social, publish]
+transport:
+  type: http
+  # Your self-hosted Postiz instance; supercmo connect writes the Authorization: Bearer header.
+  url: "${POSTIZ_URL}/api/mcp"
+auth:
+  type: api_key
+  # bearer_env: which env var supercmo connect sends as `Authorization: Bearer ${VAR}` (http).
+  bearer_env: POSTIZ_API_KEY
+  env:
+    - {name: POSTIZ_URL,     prompt: "Postiz base URL (e.g. https://postiz.yourco.com)", secret: false}
+    - {name: POSTIZ_API_KEY, prompt: "Postiz API key", secret: true}
+tools:
+  default_enabled: ["create_post", "list_channels"]

@@ -1,0 +1,20 @@
+{
+  "_comment": "Advisory trigger evals for generating-ugc-videos — deterministic keyword match, not merge-gating. Covers the four formats (review/try-on/tutorial/unboxing) plus negatives that must NOT fire: plain image gen, plain video gen, and a product video with no creator/UGC signal.",
+  "schema_version": 2,
+  "trigger_keywords": ["ugc", "creator video", "creator ad", "influencer video", "influencer ad", "talking head", "unboxing", "try-on", "ootd", "fit check", "haul", "testimonial video", "spokesperson", "creator reviewing", "review video"],
+  "cases": [
+    { "id": "tc_trigger_01", "query": "make a UGC video of a creator reviewing our new serum", "expected_trigger": true },
+    { "id": "tc_trigger_02", "query": "create an influencer video talking about our protein powder", "expected_trigger": true },
+    { "id": "tc_trigger_03", "query": "generate an unboxing video for our subscription box", "expected_trigger": true },
+    { "id": "tc_trigger_04", "query": "make a try-on video of a model wearing our jacket", "expected_trigger": true },
+    { "id": "tc_trigger_05", "query": "create a UGC tutorial for our blender with a creator on camera", "expected_trigger": true },
+    { "id": "tc_trigger_06", "query": "I want a talking head creator ad for our skincare brand", "expected_trigger": true },
+    { "id": "tc_trigger_07", "query": "make an OOTD haul featuring our sneakers", "expected_trigger": true },
+    { "id": "tc_trigger_08", "query": "create a testimonial video of someone recommending our app", "expected_trigger": true },
+    { "id": "tc_trigger_09", "query": "make a UGC creator ad for our accounting service, no physical product", "expected_trigger": true },
+    { "id": "tc_ignore_01", "query": "generate a video of waves crashing on a beach", "expected_trigger": false },
+    { "id": "tc_ignore_02", "query": "create an image of a red bicycle in a city street", "expected_trigger": false },
+    { "id": "tc_ignore_03", "query": "make a product video ad with slow motion of our sneakers", "expected_trigger": false },
+    { "id": "tc_ignore_04", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

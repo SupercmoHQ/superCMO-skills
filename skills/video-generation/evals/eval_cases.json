@@ -1,0 +1,15 @@
+{
+  "_comment": "Advisory trigger evals for video-generation — deterministic keyword match, not merge-gating. One case per trigger surface, plus cross-skill negatives.",
+  "schema_version": 2,
+  "trigger_keywords": ["generate a video", "generate video", "create a video", "make a video", "make me a video", "video of", "video ad", "animate", "animate this", "animate the", "bring to life", "b-roll", "broll", "product motion", "image to video", "turn this image into a video"],
+  "cases": [
+    { "id": "tc_trigger_01", "query": "generate a video of waves crashing on a beach", "expected_trigger": true },
+    { "id": "tc_trigger_02", "query": "create a video ad for our new sneaker launch", "expected_trigger": true },
+    { "id": "tc_trigger_03", "query": "make a video of a city skyline timelapse at dusk", "expected_trigger": true },
+    { "id": "tc_trigger_04", "query": "animate this product photo so it rotates slowly", "expected_trigger": true },
+    { "id": "tc_trigger_05", "query": "turn this image into a video with gentle camera motion", "expected_trigger": true },
+    { "id": "tc_trigger_06", "query": "make me some b-roll of coffee being poured", "expected_trigger": true },
+    { "id": "tc_ignore_01", "query": "generate an image of a red bicycle in a city street", "expected_trigger": false },
+    { "id": "tc_ignore_02", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

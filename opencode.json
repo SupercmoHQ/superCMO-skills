@@ -1,0 +1,5 @@
+{
+  "plugin": "supercmo",
+  "engine": "opencode-1.0",
+  "entrypoint": "agents/router.md"
+}

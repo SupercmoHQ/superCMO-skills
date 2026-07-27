@@ -1,0 +1,19 @@
+---
+description: SuperCMO marketing media skills (bring-your-own-keys) — image/video/tts via the supercmo MCP server.
+alwaysApply: false
+---
+
+# SuperCMO Skills (Cursor)
+
+Bring-your-own-keys marketing media generation. Skills live in `skills/*/SKILL.md`; the media tools
+come from the `supercmo` MCP server in `.mcp.json` (`mcp-server/server.py`). Everything
+runs on the user's own vendor keys — nothing routes through SuperCMO.
+
+- **Tools:** `image_generate`, `video_generate`, `text_to_speech` (+ `list_*_models`). Enable the MCP
+  server via Cursor's MCP settings (it reads BYO keys like `${FAL_KEY}` from the environment).
+- **Keys:** set one under the server's `env` in `.cursor/mcp.json` (or export it in your shell) —
+  `FAL_KEY` covers image + video + tts; the server reads keys from its process environment. On
+  `no_provider_configured`, run `python3 scripts/doctor.py` or the **supercmo-setup** skill.
+- **Output:** generated media is saved locally; the absolute path is returned in `path` (dir via
+  `output_dir` / `$SUPERCMO_OUTPUT_DIR`, default `./supercmo-media`).
+- **Safety:** preview with `dry_run` before any real generation.

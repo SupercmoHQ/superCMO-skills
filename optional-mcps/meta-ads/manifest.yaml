@@ -1,0 +1,18 @@
+manifest_version: 1
+name: meta-ads
+description: "Meta (Facebook/Instagram) Ads — campaigns, insights, audiences, creatives."
+# category: consumed by SuperCMO's approvals gate (B2); Hermes's catalog loader ignores it.
+category: [ads, spend, publish]
+transport:
+  type: http
+  # TODO(team): confirm the live Meta Ads MCP endpoint before launch.
+  url: "https://mcp.facebook.com/ads"
+auth:
+  type: oauth
+  scopes: ["ads_read", "ads_management"]
+tools:
+  default_enabled: ["list_campaigns", "get_insights"]
+post_install: |
+  Authorize in your browser:  supercmo connect meta-ads
+  (If Meta rejects dynamic client registration, supercmo connect will prompt for a
+  pre-registered client_id / client_secret.)
