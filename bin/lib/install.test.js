@@ -14,6 +14,14 @@ const json = require('./jsonhosts');
 const cli = require('./clihosts');
 const components = require('./components');
 
+const installer = path.resolve(__dirname, '..', 'install.js');
+
+function runInstaller(...args) {
+  return require('child_process').spawnSync(process.execPath, [installer, ...args], {
+    encoding: 'utf8',
+  });
+}
+
 // Fresh temp HOME with a known key set: FAL_KEY present, the others absent.
 function setup() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'supercmo-home-'));
@@ -27,6 +35,15 @@ const tmpProj = () => fs.mkdtempSync(path.join(os.tmpdir(), 'supercmo-proj-'));
 const optsFile = (o, extra = {}) => ({ serverPy: o.serverPy, command: 'python3', argsPrefix: [], ...extra });
 const read = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
 const addArgs = (o) => ({ name: 'supercmo', command: 'python3', args: [o.serverPy] });
+
+test('installer help flags print usage and exit successfully', () => {
+  for (const flag of ['--help', '-h']) {
+    const result = runInstaller(flag);
+    assert.equal(result.status, 0, `${flag} exits successfully`);
+    assert.match(result.stdout, /SuperCMO installer/, `${flag} prints usage`);
+    assert.equal(result.stderr, '', `${flag} does not report an error`);
+  }
+});
 
 test('runtime is copied to a stable dir with server + scripts', () => {
   const o = setup();

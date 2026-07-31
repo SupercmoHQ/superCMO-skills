@@ -154,10 +154,12 @@ function parseArgs(argv) {
     projectDir: null,
     force: false,
     uninstall: false,
+    help: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--all") opts.all = true;
+    if (a === "--help" || a === "-h") opts.help = true;
+    else if (a === "--all") opts.all = true;
     else if (a === "--force") opts.force = true;
     else if (a === "--uninstall") opts.uninstall = true;
     else if (a === "--project-dir")
@@ -322,6 +324,10 @@ function runInstall(hosts, opts) {
 
 function main() {
   const opts = parseArgs(process.argv.slice(2));
+  if (opts.help) {
+    usage();
+    process.exit(0);
+  }
   let hosts = opts.hosts;
   if (opts.all) hosts = Object.keys(HOSTS).filter((h) => HOSTS[h].detect());
   if (!hosts.length) {
