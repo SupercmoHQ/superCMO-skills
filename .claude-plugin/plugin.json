@@ -1,0 +1,9 @@
+{
+  "name": "supercmo",
+  "version": "0.1.6",
+  "description": "Open, model-agnostic, BYO-keys marketing skills for AI agents. Installing adds the whole skill set as one plugin; each skill also works standalone.",
+  "author": {
+    "name": "SuperCMO"
+  },
+  "repository": "https://github.com/SupercmoHQ/superCMO-skills"
+}

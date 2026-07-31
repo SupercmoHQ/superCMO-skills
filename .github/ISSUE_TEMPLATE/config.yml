@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/SupercmoHQ/superCMO-skills/blob/main/SECURITY.md
+    about: Do not file public issues for security problems — see our security policy.
+  - name: Question / discussion
+    url: https://github.com/SupercmoHQ/superCMO-skills/discussions
+    about: Ask questions and discuss ideas in Discussions.

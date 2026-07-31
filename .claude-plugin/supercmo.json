@@ -1,0 +1,18 @@
+{
+  "keyword": "SUPERCMO",
+  "visible": false,
+  "skills": [
+    "generating-images",
+    "generating-videos",
+    "analyzing-products",
+    "generating-audio"
+  ],
+  "agents": [],
+  "references": [],
+  "scripts": [
+    "supercmo_env.py"
+  ],
+  "mcp_servers": [
+    "supercmo"
+  ]
+}

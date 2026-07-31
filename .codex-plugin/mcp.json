@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "supercmo": {
+      "command": "python3",
+      "args": [
+        "./mcp-server/server.py"
+      ],
+      "cwd": "."
+    }
+  }
+}

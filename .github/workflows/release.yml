@@ -1,0 +1,48 @@
+name: Release
+
+# Tag a release — the tag must match the version in .claude-plugin/plugin.json:
+#   git tag v0.1.6 && git push origin v0.1.6
+# Builds the plugin bundle (supercmo-plugin.zip) and creates a GitHub Release with
+# notes auto-generated from the commits since the previous tag.
+#
+# The plugin is the launch product. The Python core (pyproject.toml) is deferred and is
+# NOT published here — re-add a PyPI job (OIDC Trusted Publishing) when the core ships.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub Release + upload the asset
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Assert tag matches plugin version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          ver=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          echo "tag=$tag plugin.json=$ver"
+          test "$tag" = "$ver"
+      - name: Build plugin bundle
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 scripts/package_plugins.py
+      - name: Publish GitHub Release (idempotent)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A pre-launch re-seed force-pushes the same tag, re-triggering this job. Create the release
+          # the first time; on a re-run the release already exists, so just refresh the .zip asset
+          # instead of failing on "a release with the same tag name already exists".
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/supercmo-plugin.zip --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/supercmo-plugin.zip --generate-notes
+          fi

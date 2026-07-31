@@ -1,0 +1,3 @@
+# Owner-approval gate: every change requires review from a repository owner.
+# (Enable "Require review from Code Owners" in the branch protection rule for this to enforce.)
+* @kshitizkgp @SayoniDuttaRoy

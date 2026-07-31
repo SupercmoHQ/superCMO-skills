@@ -1,0 +1,35 @@
+name: Bug report
+description: A skill or tool isn't behaving as documented.
+labels: [bug]
+body:
+  - type: input
+    id: skill
+    attributes:
+      label: Skill / tool
+      placeholder: e.g. generating-images
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Include the prompt/command. Redact any credentials.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: e.g. Claude Code 2.1.x, macOS 15
