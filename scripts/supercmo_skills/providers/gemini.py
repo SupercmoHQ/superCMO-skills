@@ -27,6 +27,20 @@ def _url(route):
 _DEFAULT_ANALYZE_PROMPT = "Describe this image in detail."
 
 
+def _usage(parsed):
+    """Exact billing drivers for the metered proxy: token counts + the model that actually served
+    (modelVersion lets the server self-correct the gemini-flash*-latest alias). Additive — BYOK
+    callers ignore it."""
+    # thoughtsTokenCount (3.x thinking) is billed at the output rate but reported separately from
+    # candidatesTokenCount → count both. cachedContentTokenCount is the cache-hit subset of
+    # promptTokenCount, billed at the cheaper cached rate → surface it so the server splits it out.
+    um = parsed.get("usageMetadata") or {}
+    return {"model_version": parsed.get("modelVersion"),
+            "in_tok": um.get("promptTokenCount", 0),
+            "cached": um.get("cachedContentTokenCount", 0),
+            "out_tok": um.get("candidatesTokenCount", 0) + um.get("thoughtsTokenCount", 0)}
+
+
 def _resolve_image(image):
     """(mime, base64_data, None) for a data: URI or an http(s) URL; (None, None, error) on failure.
     Gemini's generateContent needs inline image bytes — a URL is fetched here, at call time."""
@@ -38,9 +52,12 @@ def _resolve_image(image):
         except Exception:
             return None, None, "malformed data URI"
     if image.startswith(("http://", "https://")):
-        data, ctype, status, _err = supercmo_env._request_raw("GET", image)
-        if data is None:
-            return None, None, f"could not fetch image url ({status})"
+        # Agent-supplied URL fetched server-side → MUST go through the SSRF guard (never the plain
+        # _request_raw, which any URL — incl. http://169.254.169.254/… cloud metadata — would reach).
+        try:
+            data, ctype = supercmo_env.safe_fetch_bytes(image)
+        except ValueError as e:
+            return None, None, f"could not fetch image url: {e}"
         return (ctype or "image/png").split(";")[0], base64.b64encode(data).decode("ascii"), None
     return None, None, "image must be a data URI or an http(s) URL"
 
@@ -68,7 +85,7 @@ def analyze_generate(route, payload, key):
         text = None
     if not text:
         return {"ok": False, "error": "gemini analyze: no text in response", "detail": json.dumps(parsed)[:300]}
-    return {"ok": True, "model": payload.get("model"), "text": text}
+    return {"ok": True, "model": payload.get("model"), "text": text, "usage": _usage(parsed)}
 
 
 def analyze_request_spec(route, payload):
@@ -103,7 +120,7 @@ def analyze_video_generate(route, payload, key):
         text = None
     if not text:
         return {"ok": False, "error": "gemini analyze: no text in response", "detail": json.dumps(parsed)[:300]}
-    return {"ok": True, "model": payload.get("model"), "text": text}
+    return {"ok": True, "model": payload.get("model"), "text": text, "usage": _usage(parsed)}
 
 
 def analyze_video_request_spec(route, payload):
