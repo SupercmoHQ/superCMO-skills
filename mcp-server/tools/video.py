@@ -27,13 +27,17 @@ VIDEO_GENERATE = {
 def video_generate(args):
     reqs = args.get("requests")
     dry_run = bool(args.get("dry_run", False))
+    operation_key = args.get("idempotency_key")
+    if tool_specs.operation_call_id(operation_key) is None:
+        return dict(tool_specs.IDEMPOTENCY_KEY_ERROR)
     if not isinstance(reqs, list) or not reqs:
         return {"ok": False, "error": "requests must be a non-empty list of video request objects (1-10)."}
     if len(reqs) > 10:
         return {"ok": False, "error": f"at most 10 requests per call; got {len(reqs)}.",
                 "hint": "split into more calls"}
 
-    def _one(r):
+    def _one(indexed):
+        index, r = indexed
         if not isinstance(r, dict) or not r.get("prompt"):
             return {"ok": False, "error": "each request must be an object with a prompt."}
         return supercmo_skills.video_generate(
@@ -43,16 +47,18 @@ def video_generate(args):
             reference_audios=r.get("reference_audios"),
             duration=(int(r["duration"]) if r.get("duration") is not None else None),
             resolution=r.get("resolution"), aspect_ratio=r.get("aspect_ratio"),
-            generate_audio=r.get("generate_audio"), dry_run=dry_run)
+            generate_audio=r.get("generate_audio"), dry_run=dry_run,
+            call_id=tool_specs.operation_call_id(operation_key, index))
 
     # Each request submits then waits on its own thread, so a batch's clips are generated
     # concurrently — wall time ≈ the slowest clip, not their sum. A clip slower than one wait window
     # comes back as a pending handle; rejoin it with job_status.
+    indexed = list(enumerate(reqs))
     if dry_run or len(reqs) == 1:
-        results = [_one(r) for r in reqs]
+        results = [_one(item) for item in indexed]
     else:
         with ThreadPoolExecutor(max_workers=min(8, len(reqs))) as ex:
-            results = list(ex.map(_one, reqs))
+            results = list(ex.map(_one, indexed))
     pending = sum(1 for r in results if supercmo_skills.is_pending(r))
     out = {"ok": all(supercmo_skills.job_ok(x) for x in results), "count": len(results), "results": results}
     if pending:

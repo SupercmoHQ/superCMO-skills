@@ -19,6 +19,7 @@ CLI:
   supercmo_env.py --dry-run   # no network calls — prints a notice
 """
 import http.client
+import io
 import ipaddress
 import json
 import os
@@ -109,9 +110,10 @@ def resolve_vendor_route(*byok_vars):
     key = supercmo_key()
     if key:
         return "proxy", key
-    hint = (f"Add {' or '.join(byok_vars)} to ~/.supercmo/.env (or export it), then try again "
-            "— see the README's 'Bring your own keys'. Or use a managed SuperCMO key: buy credits + "
-            "mint a key at getsupercmo.ai/settings?tab=keys.")
+    hint = ("No key set. Two options: (A) Managed — run "
+            "`npx --yes github:SupercmoHQ/superCMO-skills login` to sign in and pay per use; or "
+            f"(B) bring your own {' or '.join(byok_vars)} — add it to ~/.supercmo/.env. "
+            "Ask the user which option they want; don't run login unless they choose managed. Then try again.")
     return "none", hint
 
 
@@ -131,7 +133,7 @@ def _request(method, url, body=None, headers=None, timeout=120, retries=None):
         except urllib.error.HTTPError as e:
             detail = e.read().decode("utf-8", "replace")[:500]
             last_err, last_status = detail, e.code
-            if e.code in (400, 401, 402, 403, 404, 429):
+            if e.code in (400, 401, 402, 403, 404, 409, 429):
                 return None, e.code, detail  # no retry on client errors / rate limits
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
             last_err = f"{type(e).__name__}: {e}"
@@ -269,18 +271,67 @@ def safe_download(url, dest, timeout=60, max_bytes=_SSRF_MAX_BYTES, _redirects=3
         conn.close()
 
 
+def safe_fetch_bytes(url, timeout=60, max_bytes=_SSRF_MAX_BYTES, _redirects=3):
+    """SSRF-guarded fetch of an agent-supplied http(s) URL, returning (data_bytes, content_type).
+    Same protection as safe_download (validated + pinned IP, per-hop redirect re-validation, size cap)
+    but in-memory, for callers that need the bytes rather than a file — e.g. inlining an image/video for
+    a vision model server-side. Raises ValueError on a blocked / oversized / failed fetch."""
+    p = urllib.parse.urlparse(url)
+    if p.scheme not in ("http", "https"):
+        raise ValueError(f"unsupported URL scheme: {p.scheme or '(none)'}")
+    if not p.hostname:
+        raise ValueError("URL has no host")
+    port = p.port or (443 if p.scheme == "https" else 80)
+    _fam, ip = _resolve_public(p.hostname, port)   # blocks loopback / RFC1918 / link-local / metadata
+    if p.scheme == "https":
+        conn = _PinnedHTTPSConnection(p.hostname, ip, port=port, timeout=timeout,
+                                      context=ssl.create_default_context())
+    else:
+        conn = _PinnedHTTPConnection(p.hostname, ip, port=port, timeout=timeout)
+    try:
+        path = (p.path or "/") + (f"?{p.query}" if p.query else "")
+        conn.request("GET", path, headers={"User-Agent": _USER_AGENT, "Host": p.hostname})
+        resp = conn.getresponse()
+        if resp.status in (301, 302, 303, 307, 308):
+            loc = resp.headers.get("Location")
+            if not loc or _redirects <= 0:
+                raise ValueError("too many redirects")
+            return safe_fetch_bytes(urllib.parse.urljoin(url, loc), timeout, max_bytes, _redirects - 1)
+        if resp.status != 200:
+            raise ValueError(f"fetch failed ({resp.status})")
+        data = bytearray()
+        while True:
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            data += chunk
+            if len(data) > max_bytes:
+                raise ValueError("fetch exceeds size cap")
+        return bytes(data), resp.headers.get("Content-Type", "")
+    finally:
+        conn.close()
+
+
 def proxy_request(capability, body, method="POST", call_id=None, timeout=120):
     """Call the metered proxy. Returns the parsed response dict, or a
     structured {'ok': False, ...} error the caller can print and exit on.
-    402 -> insufficient_credits (the agent should relay an upgrade prompt).
+    402 -> insufficient_credits (the agent should relay a top-up prompt).
     timeout bounds the call — managed video/tts block server-side on the vendor queue (~minutes)."""
     key = supercmo_key()
     if not key:
         return {"ok": False, "error": "SUPERCMO_API_KEY missing — cannot use the metered proxy."}
     headers = {"Authorization": f"Bearer {key}"}
-    if call_id:
+    if method != "GET":
         body = dict(body or {})
-        body.setdefault("call_id", call_id)
+        call_id = call_id or body.get("call_id")
+        if not isinstance(call_id, str) or not call_id.strip() or len(call_id) > 120:
+            return {
+                "ok": False,
+                "error": "idempotency_key_required",
+                "detail": "managed writes need a stable idempotency key of at most 120 characters",
+                "fix": "reuse the same idempotency_key only when retrying the same operation",
+            }
+        body["call_id"] = call_id
     url = f"{api_url()}{PROXY_BASE}/{capability.lstrip('/')}"
     parsed, status, err = _request(method, url, body=body if method != "GET" else None,
                                    headers=headers, timeout=timeout)
@@ -288,8 +339,11 @@ def proxy_request(capability, body, method="POST", call_id=None, timeout=120):
         return parsed
     if status == 402:
         return {"ok": False, "error": "insufficient_credits",
-                "action": "upgrade", "detail": err,
-                "topup": "getsupercmo.ai/settings?tab=billing"}
+                "action": "top_up", "detail": err,
+                "topup": "https://getsupercmo.ai/settings?tab=billing"}
+    if status == 409:
+        return {"ok": False, "error": "duplicate_call_id", "detail": err,
+                "fix": "the prior managed request already used this call ID; do not retry it."}
     if status == 429:
         return {"ok": False, "error": "rate_limited", "detail": err,
                 "fix": "the service is rate-limiting; wait for the cooldown before retrying."}
@@ -299,12 +353,15 @@ def proxy_request(capability, body, method="POST", call_id=None, timeout=120):
     return {"ok": False, "error": f"proxy {capability} failed ({status}): {err}"}
 
 
-def proxy_submit(capability, body, timeout=120):
+def proxy_submit(capability, body, call_id=None, timeout=120):
     """Submit a generation to the metered proxy. The proxy may answer **synchronously** (a final
     {ok, ...media...}) or **asynchronously** ({ok, job_id}) for a long-running job — the client
     handles both (a job_id becomes a pending handle it later polls with proxy_job_status). Returns
-    the parsed response dict, or a structured {ok: False, ...} error."""
-    return proxy_request(capability, body, timeout=timeout)
+    the parsed response dict, or a structured {ok: False, ...} error.
+
+    ``call_id`` is required and rides the body through network and later tool-call retries, so one
+    intended operation is charged at most once. A caller must reuse it only for the same operation."""
+    return proxy_request(capability, body, call_id=call_id, timeout=timeout)
 
 
 def proxy_job_status(job_id, timeout=60):
@@ -347,24 +404,98 @@ def proxy_spec(capability, body):
 
 
 def _selftest():
-    """Assert the key-file loader: precedence, parsing edges, and the non-UTF-8 no-crash guard."""
+    """Assert key-file loading and the managed-proxy error/idempotency contract."""
+    global _request
     import tempfile
-    p = os.path.join(tempfile.mkdtemp(), ".env")
-    with open(p, "wb") as f:  # non-UTF-8 comment byte + a valid ASCII key line + parsing edges
-        f.write(b"# cl\xe9 (non-utf8 comment)\nFAL_KEY=fromfile\nGEMINI_API_KEY=g  # inline\n"
-                b"ELEVENLABS_API_KEY=\"quoted\"\nEMPTY=\n")
-    for k in ("FAL_KEY", "GEMINI_API_KEY", "ELEVENLABS_API_KEY", "EMPTY"):
-        os.environ.pop(k, None)
-    os.environ["FAL_KEY"] = "realenv"                 # a real env value must win over the file
-    _load_key_file(p)
-    assert os.environ["FAL_KEY"] == "realenv", "real env value must win"
-    assert os.environ["GEMINI_API_KEY"] == "g", "inline comment stripped on unquoted value"
-    assert os.environ["ELEVENLABS_API_KEY"] == "quoted", "surrounding quotes stripped"
-    assert "EMPTY" not in os.environ, "empty value must not be set"
-    os.environ["FAL_KEY"] = ""                         # empty (unset ${VAR:-}) must be filled
-    _load_key_file(p)
-    assert os.environ["FAL_KEY"] == "fromfile", "empty/unset var filled from the file"
-    _load_key_file(os.path.join(p, "does-not-exist"))  # missing file: no-op, must not raise
+    scratch_root = os.path.dirname(__file__)
+    with tempfile.TemporaryDirectory(dir=scratch_root) as scratch:
+        p = os.path.join(scratch, ".env")
+        with open(p, "wb") as f:  # non-UTF-8 comment byte + a valid ASCII key line + parsing edges
+            f.write(b"# cl\xe9 (non-utf8 comment)\nFAL_KEY=fromfile\nGEMINI_API_KEY=g  # inline\n"
+                    b"ELEVENLABS_API_KEY=\"quoted\"\nEMPTY=\n")
+        for k in ("FAL_KEY", "GEMINI_API_KEY", "ELEVENLABS_API_KEY", "EMPTY"):
+            os.environ.pop(k, None)
+        os.environ["FAL_KEY"] = "realenv"             # a real env value must win over the file
+        _load_key_file(p)
+        assert os.environ["FAL_KEY"] == "realenv", "real env value must win"
+        assert os.environ["GEMINI_API_KEY"] == "g", "inline comment stripped on unquoted value"
+        assert os.environ["ELEVENLABS_API_KEY"] == "quoted", "surrounding quotes stripped"
+        assert "EMPTY" not in os.environ, "empty value must not be set"
+        os.environ["FAL_KEY"] = ""                     # empty (unset ${VAR:-}) must be filled
+        _load_key_file(p)
+        assert os.environ["FAL_KEY"] == "fromfile", "empty/unset var filled from the file"
+        _load_key_file(os.path.join(p, "does-not-exist"))  # missing file: no-op, must not raise
+
+    real_request = _request
+    os.environ["SUPERCMO_API_KEY"] = "managed"
+    observed = {}
+
+    def stub_request(method, url, body=None, headers=None, timeout=120, retries=None):
+        observed.update(method=method, url=url, body=body, headers=headers, timeout=timeout)
+        return {"ok": True}, 200, None
+
+    try:
+        _request = stub_request
+        missing = proxy_request("image", {"prompt": "x"})
+        assert missing["error"] == "idempotency_key_required"
+        assert proxy_request("image", {"prompt": "x"}, call_id="stable-operation") == {"ok": True}
+        generated_call_id = observed["body"]["call_id"]
+        assert generated_call_id == "stable-operation"
+        _request = lambda *args, **kwargs: (None, 402, "balance low")
+        payment = proxy_request("image", {}, call_id="payment-test")
+        assert payment["action"] == "top_up" and payment["topup"].startswith("https://")
+        _request = lambda *args, **kwargs: (None, 409, "already used")
+        duplicate = proxy_request("image", {}, call_id="duplicate-test")
+        assert duplicate["error"] == "duplicate_call_id" and "do not retry" in duplicate["fix"]
+    finally:
+        _request = real_request
+        os.environ.pop("SUPERCMO_API_KEY", None)
+
+    real_urlopen, real_sleep = urllib.request.urlopen, time.sleep
+    bodies = []
+
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b'{"ok": true}'
+
+    try:
+        def retry_once(req, timeout=None):
+            bodies.append(req.data)
+            if len(bodies) == 1:
+                raise urllib.error.URLError("lost response")
+            return Response()
+
+        urllib.request.urlopen = retry_once
+        time.sleep = lambda _seconds: None
+        parsed, status, err = _request(
+            "POST", "https://example.test/proxy", {"call_id": generated_call_id}, retries=2
+        )
+        assert parsed == {"ok": True} and status == 200 and err is None
+        assert len(bodies) == 2 and bodies[0] == bodies[1]
+
+        attempts = []
+
+        def conflict(req, timeout=None):
+            attempts.append(req.data)
+            raise urllib.error.HTTPError(
+                req.full_url, 409, "Conflict", {}, io.BytesIO(b'{"detail":"duplicate"}')
+            )
+
+        urllib.request.urlopen = conflict
+        _parsed, status, _err = _request(
+            "POST", "https://example.test/proxy", {"call_id": generated_call_id}, retries=3
+        )
+        assert status == 409 and len(attempts) == 1
+    finally:
+        urllib.request.urlopen, time.sleep = real_urlopen, real_sleep
     print("supercmo_env selftest: OK")
 
 

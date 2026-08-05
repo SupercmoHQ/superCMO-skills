@@ -33,7 +33,10 @@ function installRuntime() {
 // without touching per-host configs. chmod 600. Returns {file, created}.
 function ensureKeyFile() {
   const file = path.join(home(), '.supercmo', '.env');
-  if (fs.existsSync(file)) return { file, created: false };
+  if (fs.existsSync(file)) {
+    fs.chmodSync(file, 0o600);
+    return { file, created: false };
+  }
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const body = [
     '# SuperCMO keys — add at least one below, then restart your host.',
@@ -56,4 +59,35 @@ function ensureKeyFile() {
   return { file, created: true };
 }
 
-module.exports = { PLUGIN_ROOT, SERVER_NAME, home, installRuntime, ensureKeyFile };
+// Set a single KEY=value in ~/.supercmo/.env, preserving every OTHER line (the file is shared
+// with the user's other keys). Ensures the file exists first, then: replaces the line for `name`
+// in place (whether it was empty or already set), or appends it if absent. chmod 600. Used by
+// `supercmo login` to write the managed SUPERCMO_API_KEY without a copy-paste. Returns the path.
+function setKey(name, value) {
+  if (!/^[A-Z][A-Z0-9_]*$/.test(name)) throw new Error('invalid environment key name.');
+  if (typeof value !== 'string' || !value || /[\u0000-\u001f\u007f]/.test(value))
+    throw new Error('invalid credential returned by the login service.');
+  const { file } = ensureKeyFile();
+  const line = `${name}=${value}`;
+  const re = new RegExp(`^\\s*${name}\\s*=`);
+  const lines = fs.readFileSync(file, 'utf8').split('\n');
+  let replaced = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (re.test(lines[i])) {
+      lines[i] = line;
+      replaced = true;
+      break;
+    }
+  }
+  if (!replaced) {
+    // Append, keeping a single trailing newline (the placeholder body ends with '').
+    if (lines.length && lines[lines.length - 1] === '') lines[lines.length - 1] = line;
+    else lines.push(line);
+    lines.push('');
+  }
+  fs.writeFileSync(file, lines.join('\n'), { mode: 0o600 });
+  fs.chmodSync(file, 0o600);
+  return file;
+}
+
+module.exports = { PLUGIN_ROOT, SERVER_NAME, home, installRuntime, ensureKeyFile, setKey };

@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
 
 import registry  # noqa: E402
 import supercmo_skills  # noqa: E402
+from supercmo_skills import tool_specs  # noqa: E402
 
 
 URL_EXTRACTION = {
@@ -46,19 +47,24 @@ URL_EXTRACTION = {
                 "description": "If true, return the request that would be sent (key masked), make no API call.",
                 "default": False,
             },
+            "idempotency_key": tool_specs.IDEMPOTENCY_KEY_PROPERTY,
         },
-        "required": ["url"],
+        "required": ["url", "idempotency_key"],
         "additionalProperties": False,
     },
 }
 
 
 def url_extraction(args):
+    call_id = tool_specs.operation_call_id(args.get("idempotency_key"))
+    if call_id is None:
+        return dict(tool_specs.IDEMPOTENCY_KEY_ERROR)
     return supercmo_skills.url_extraction(
         url=args.get("url"),
         prompt=args.get("prompt"),
         schema=args.get("schema"),
         dry_run=bool(args.get("dry_run", False)),
+        call_id=call_id,
     )
 
 

@@ -75,17 +75,18 @@ _select_route = select_route   # internal alias (the image/video/audio callers b
 
 
 def _setup_hint(capability, model):
-    """Name the BYO keys that would serve this model (BYOK-first; managed via SUPERCMO_API_KEY)."""
+    """Two setup paths, managed first, for a no-key generation error. Names the BYO keys that would
+    serve this model for the BYOK option."""
     keys = []
     for route in catalog.routes_of(capability, model):
         provider = _PROVIDERS.get(route["provider"])
         if provider is not None and provider.BYOK_ENV not in keys:
             keys.append(provider.BYOK_ENV)
     byo = " or ".join(keys) if keys else "a vendor key"
-    return (f"Tell the user to add {byo} (their own key from the vendor's dashboard) to "
-            "~/.supercmo/.env (or export it), then restart the host — or use a managed "
-            "SUPERCMO_API_KEY (buy credits + mint at getsupercmo.ai/settings?tab=keys). Then retry. "
-            "Do not substitute a different tool — this key is required to generate.")
+    return ("No key for this yet. Two options: (A) Managed — run "
+            "`npx --yes github:SupercmoHQ/superCMO-skills login` to sign in and pay per use; or "
+            f"(B) bring your own {byo} — add it to ~/.supercmo/.env. Then retry. A key is required "
+            "to generate. Ask the user which option they want; don't run login unless they choose managed.")
 
 
 # ------------------------------------------------------------------ image ref helpers
@@ -205,7 +206,8 @@ def _record_usage(capability, model, provider_name, kind, t0, result, err_cls):
         pass
 
 
-def _dispatch(capability, model, inp, kind, provider, route, dry_run, spec_attr, gen_attr, proxy_timeout=120):
+def _dispatch(capability, model, inp, kind, provider, route, dry_run, spec_attr, gen_attr,
+              proxy_timeout=120, call_id=None):
     """Shared direct/proxy dispatch for every capability — and the single telemetry choke point.
     proxy_timeout bounds the managed HTTP call (video blocks server-side on the vendor queue)."""
     if kind == "direct" and dry_run:
@@ -226,7 +228,9 @@ def _dispatch(capability, model, inp, kind, provider, route, dry_run, spec_attr,
             result = getattr(provider, gen_attr)(route, payload, os.environ.get(provider.BYOK_ENV))
         elif kind == "proxy":
             body = {"model": model, "input": inp}
-            result = supercmo_env.proxy_request(capability, body, timeout=proxy_timeout)
+            result = supercmo_env.proxy_request(
+                capability, body, call_id=call_id, timeout=proxy_timeout
+            )
         else:
             result = {"ok": False, "error": "no_provider_configured", "hint": _setup_hint(capability, model)}
     except Exception as e:
@@ -328,7 +332,7 @@ def _persist_media(result, output_dir, capability):
 # tool-call boundary (and even a server restart). The poll loop + finalize live here once; every
 # capability (video, future queued audio modes) reuses them — dispatch is on the handle.
 
-def _submit(capability, model, inp, kind, provider, route):
+def _submit(capability, model, inp, kind, provider, route, call_id=None):
     """Submit a queued job (no wait). Direct → provider.<cap>_submit; proxy → proxy_submit (which may
     answer synchronously). Returns the raw submit/response dict (see _submit_or_run for handling)."""
     if kind == "direct":
@@ -336,7 +340,7 @@ def _submit(capability, model, inp, kind, provider, route):
         return getattr(provider, f"{capability}_submit")(route, payload, os.environ.get(provider.BYOK_ENV))
     if kind == "proxy":
         return supercmo_env.proxy_submit(capability, {"model": model, "input": inp},
-                                         timeout=_MANAGED_LONG_TIMEOUT)
+                                         call_id=call_id, timeout=_MANAGED_LONG_TIMEOUT)
     return {"ok": False, "error": "no_provider_configured", "hint": _setup_hint(capability, model)}
 
 
@@ -407,7 +411,8 @@ def _wait_for_job(handle, deadline_s=None):
         interval = min(interval * 1.5, _POLL_INTERVAL_MAX)
 
 
-def _submit_or_run(capability, model, inp, kind, provider, route, output_dir, wait, deadline_s, adjusted=None):
+def _submit_or_run(capability, model, inp, kind, provider, route, output_dir, wait, deadline_s,
+                   adjusted=None, call_id=None):
     """Submit a generation and either wait to completion or hand back a pending handle. Synchronous
     providers (direct non-queued, e.g. elevenlabs speech) and a synchronous proxy return
     the finished media directly — only queued jobs produce a handle."""
@@ -419,7 +424,7 @@ def _submit_or_run(capability, model, inp, kind, provider, route, output_dir, wa
         if adjusted and isinstance(res, dict):
             res["duration_adjusted"] = adjusted
         return _persist_media(res, output_dir, capability)
-    sub = _submit(capability, model, inp, kind, provider, route)
+    sub = _submit(capability, model, inp, kind, provider, route, call_id=call_id)
     if not sub.get("ok"):
         return sub
     if kind == "proxy" and not sub.get("job_id"):     # proxy answered synchronously
@@ -463,7 +468,8 @@ def job_ok(result):
 
 # -------------------------------------------------------------------------------- image
 def image_generate(prompt, model=None, aspect_ratio=None, resolution=None,
-                   reference_images=None, dry_run=False, output_dir=None, wait=True, deadline_s=None):
+                   reference_images=None, dry_run=False, output_dir=None, wait=True, deadline_s=None,
+                   call_id=None):
     """One image (text-to-image, or an edit when reference_images are supplied). The tool batches
     these — one call per request object. Images are submitted on the queue and polled: a fast image
     returns {ok, model, images} on the first poll, a slow one (heavy model / 4k / large batch) comes
@@ -500,7 +506,10 @@ def image_generate(prompt, model=None, aspect_ratio=None, resolution=None,
     if dry_run:
         return _dispatch("image", model, inp, kind, provider, route, dry_run,
                          "image_request_spec", "image_generate")
-    return _submit_or_run("image", model, inp, kind, provider, route, output_dir, wait, deadline_s)
+    return _submit_or_run(
+        "image", model, inp, kind, provider, route, output_dir, wait, deadline_s,
+        call_id=call_id,
+    )
 
 
 # -------------------------------------------------------------------------------- video
@@ -532,7 +541,7 @@ def _resolve_video(base_route, populated):
 def video_generate(prompt, model=None, aspect_ratio=None, duration=None, resolution=None,
                    start_frame_image=None, end_frame_image=None, reference_images=None,
                    reference_videos=None, reference_audios=None, generate_audio=None,
-                   dry_run=False, output_dir=None, wait=True, deadline_s=None):
+                   dry_run=False, output_dir=None, wait=True, deadline_s=None, call_id=None):
     """Text / image / reference-to-video. Video generation is queued and long-running: the clip is
     submitted, then polled. With wait=True (default) this returns the finished {ok, model, video:{url},
     duration, ...} when it completes within one wait window, or a pending job handle ({status:
@@ -621,7 +630,7 @@ def video_generate(prompt, model=None, aspect_ratio=None, duration=None, resolut
             res["duration_adjusted"] = adjusted
         return res
     return _submit_or_run("video", model, inp, kind, provider, resolved, output_dir,
-                          wait, deadline_s, adjusted)
+                          wait, deadline_s, adjusted, call_id=call_id)
 
 
 # -------------------------------------------------------------------------------- audio
@@ -635,7 +644,8 @@ def list_voices(search=None, gender=None, accent=None, age=None, use_case=None, 
         # Managed lane: our own account's voices, resolved server-side via /proxy/voices.
         return supercmo_env.proxy_request("voices", {
             "search": search, "gender": gender, "accent": accent, "age": age,
-            "use_case": use_case, "language": language, "limit": limit})
+            "use_case": use_case, "language": language, "limit": limit},
+            call_id=f"voices-{uuid.uuid4().hex}")
     if kind != "direct" or not hasattr(provider, "list_voices"):
         return {"ok": False, "error": "no_provider_configured",
                 "hint": _setup_hint("audio", catalog.default_model("audio"))}
@@ -653,7 +663,7 @@ def list_voices(search=None, gender=None, accent=None, age=None, use_case=None, 
 
 def audio_generate(text=None, type="speech", model=None, voice=None, speed=None, stability=None,
                    similarity_boost=None, style=None, format=None, dry_run=False, output_dir=None,
-                   wait=True, deadline_s=None):
+                   wait=True, deadline_s=None, call_id=None):
     """Generate one standalone audio clip. Returns {ok, model, audio:{url|b64, path}} | {ok: False,
     error, ...}. `type` selects the mode; an unsupported value errors with the supported set."""
     if type not in catalog.AUDIO_TYPES:
@@ -706,14 +716,17 @@ def audio_generate(text=None, type="speech", model=None, voice=None, speed=None,
         res = _dispatch("audio", model, inp, kind, provider, route, dry_run,
                         "audio_request_spec", "audio_generate")
     else:
-        res = _submit_or_run("audio", model, inp, kind, provider, route, output_dir, wait, deadline_s)
+        res = _submit_or_run(
+            "audio", model, inp, kind, provider, route, output_dir, wait, deadline_s,
+            call_id=call_id,
+        )
     if adjusted and isinstance(res, dict) and res.get("ok"):
         res["adjusted"] = adjusted
     return res
 
 
 # ------------------------------------------------------------------------- extract
-def url_extraction(url, prompt=None, schema=None, model=None, dry_run=False):
+def url_extraction(url, prompt=None, schema=None, model=None, dry_run=False, call_id=None):
     """Structured extraction from a web/product URL (fields + image URLs), guided by a prompt or
     JSON schema. Returns {ok, data, metadata} | {ok: False, error, ...}. Returns data, not media."""
     url = (url or "").strip() if isinstance(url, str) else ""
@@ -727,11 +740,12 @@ def url_extraction(url, prompt=None, schema=None, model=None, dry_run=False):
     inp = {"url": url, "prompt": (prompt or None), "schema": (schema or None)}
     kind, provider, route = _select_route("extract", model)
     return _dispatch("extract", model, inp, kind, provider, route, dry_run,
-                     "extract_request_spec", "extract_generate", proxy_timeout=_MANAGED_LONG_TIMEOUT)
+                     "extract_request_spec", "extract_generate", proxy_timeout=_MANAGED_LONG_TIMEOUT,
+                     call_id=call_id)
 
 
 # ------------------------------------------------------------------------ analysis
-def image_analysis(image, prompt=None, model=None, dry_run=False):
+def image_analysis(image, prompt=None, model=None, dry_run=False, call_id=None):
     """Vision analysis of a local image path or an image URL, answering `prompt`.
     Returns {ok, text} | {ok: False, error, ...}. Returns text, not media."""
     image = (image or "").strip() if isinstance(image, str) else image
@@ -746,10 +760,10 @@ def image_analysis(image, prompt=None, model=None, dry_run=False):
     inp = {"image": enc[0], "prompt": (prompt or None)}
     kind, provider, route = _select_route("analysis", model)
     return _dispatch("analysis", model, inp, kind, provider, route, dry_run,
-                     "analyze_request_spec", "analyze_generate")
+                     "analyze_request_spec", "analyze_generate", call_id=call_id)
 
 
-def video_analysis(video, prompt=None, model=None, dry_run=False):
+def video_analysis(video, prompt=None, model=None, dry_run=False, call_id=None):
     """Vision analysis of a local video path or a video URL, answering `prompt`.
     Returns {ok, text} | {ok: False, error, ...}. Returns text, not media. Analyzes a clip inline —
     a very large file may exceed the request limit."""
@@ -765,7 +779,7 @@ def video_analysis(video, prompt=None, model=None, dry_run=False):
     inp = {"video": enc[0], "prompt": (prompt or None)}
     kind, provider, route = _select_route("analysis", model)
     return _dispatch("analysis", model, inp, kind, provider, route, dry_run,
-                     "analyze_video_request_spec", "analyze_video_generate")
+                     "analyze_video_request_spec", "analyze_video_generate", call_id=call_id)
 
 
 # ------------------------------------------------- managed (server-side) generation for the proxy
@@ -774,6 +788,29 @@ def can_serve_managed(capability, model):
     proxy checks this BEFORE charging — a missing server key is our misconfiguration (a 503), never
     a user debit followed by a refund."""
     return select_route(capability, model, allow_proxy=False)[0] == "direct"
+
+
+# Every agent-supplied media reference the managed proxy might inline or forward. Server-side these
+# must be http(s) URLs or data: URIs only — see _unsafe_managed_ref.
+_MANAGED_MEDIA_REF_FIELDS = (
+    "reference_images", "reference_videos", "reference_audios",
+    "start_frame_image", "end_frame_image", "image_url", "image", "video", "audio",
+)
+
+
+def _unsafe_managed_ref(inp):
+    """The first media-ref field in `inp` that is NOT an http(s) URL or a data: URI, else None. Server-
+    side, an agent-supplied bare/relative path or file:// URI would target the SERVER's filesystem (LFI),
+    never the caller's box, so the managed proxy refuses them (BYOK, on the caller's own machine, still
+    accepts local paths — they're encoded to data URIs before they ever reach here). An allowed http(s)
+    ref is still fetched behind the SSRF guard downstream (safe_fetch_bytes)."""
+    for field in _MANAGED_MEDIA_REF_FIELDS:
+        v = inp.get(field)
+        for r in (v if isinstance(v, list) else [v]):
+            if isinstance(r, str) and r.strip() and not r.strip().lower().startswith(
+                    ("http://", "https://", "data:")):
+                return field
+    return None
 
 
 def generate_managed(capability, model, inp):
@@ -790,6 +827,11 @@ def generate_managed(capability, model, inp):
     if kind != "direct" or provider is None:
         return {"ok": False, "error": "no_provider_configured",
                 "hint": f"no server vendor key for any {capability} route of '{model}'"}
+    bad = _unsafe_managed_ref(inp)
+    if bad is not None:
+        return {"ok": False, "error": "unsafe_reference",
+                "hint": f"managed generation accepts only http(s) URLs or data: URIs for `{bad}` — a "
+                        "local path or file:// is not allowed server-side."}
     key = os.environ.get(provider.BYOK_ENV)
     if capability == "video":
         populated = {f for f in _VIDEO_MEDIA_FIELDS if inp.get(f)}
@@ -829,6 +871,11 @@ def list_voices_managed(filters):
 if __name__ == "__main__":
     _KEYS = ("FAL_KEY", "ELEVENLABS_API_KEY", "GEMINI_API_KEY",
              "FIRECRAWL_API_KEY", "SUPERCMO_API_KEY")
+
+    # Route tests below build their own credential states in os.environ. Keep the user's
+    # ~/.supercmo/.env from repopulating those keys between _clear() and a route lookup.
+    _REAL_RELOAD_KEYS = supercmo_env.reload_keys
+    supercmo_env.reload_keys = lambda: None
 
     def _clear():
         for k in _KEYS:
@@ -1009,4 +1056,23 @@ if __name__ == "__main__":
     assert can_serve_managed("audio", "eleven-v3") is False       # no elevenlabs key set
     _clear()
 
+    # ---- server-side reference safety (Step 8): the managed entry must refuse a local/file:// ref
+    # (it would read the SERVER's disk, not the caller's) and SSRF-guard any http(s) it fetches ----
+    assert _unsafe_managed_ref({"reference_images": ["data:,x", "https://e/i.png"]}) is None
+    for _bad in ("file:///etc/passwd", "/etc/shadow", "~/.ssh/id_rsa", "../s"):
+        assert _unsafe_managed_ref({"image": _bad}) == "image", _bad
+    os.environ["FAL_KEY"] = "sk"                                   # provider resolves → reach the ref gate
+    assert generate_managed("image", "nano-banana",
+                            {"prompt": "x", "reference_images": ["file:///etc/passwd"]}
+                            )["error"] == "unsafe_reference"       # returns before any provider call
+    _clear()
+    # an agent-supplied URL fetched server-side (e.g. gemini vision) can't reach metadata / loopback / RFC1918
+    for _ssrf in ("http://169.254.169.254/latest/meta-data/", "http://127.0.0.1/", "http://10.0.0.1/"):
+        try:
+            supercmo_env.safe_fetch_bytes(_ssrf)
+            assert False, f"SSRF not blocked: {_ssrf}"
+        except ValueError:
+            pass
+
+    supercmo_env.reload_keys = _REAL_RELOAD_KEYS
     print("client OK")

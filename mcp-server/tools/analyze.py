@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
 
 import registry  # noqa: E402
 import supercmo_skills  # noqa: E402
+from supercmo_skills import tool_specs  # noqa: E402
 
 
 IMAGE_ANALYSIS = {
@@ -41,18 +42,23 @@ IMAGE_ANALYSIS = {
                 "description": "If true, return the request that would be sent (key and image masked), make no API call.",
                 "default": False,
             },
+            "idempotency_key": tool_specs.IDEMPOTENCY_KEY_PROPERTY,
         },
-        "required": ["image"],
+        "required": ["image", "idempotency_key"],
         "additionalProperties": False,
     },
 }
 
 
 def image_analysis(args):
+    call_id = tool_specs.operation_call_id(args.get("idempotency_key"))
+    if call_id is None:
+        return dict(tool_specs.IDEMPOTENCY_KEY_ERROR)
     return supercmo_skills.image_analysis(
         image=args.get("image"),
         prompt=args.get("prompt"),
         dry_run=bool(args.get("dry_run", False)),
+        call_id=call_id,
     )
 
 
@@ -87,18 +93,23 @@ VIDEO_ANALYSIS = {
                 "description": "If true, return the request that would be sent (key and video masked), make no API call.",
                 "default": False,
             },
+            "idempotency_key": tool_specs.IDEMPOTENCY_KEY_PROPERTY,
         },
-        "required": ["video"],
+        "required": ["video", "idempotency_key"],
         "additionalProperties": False,
     },
 }
 
 
 def video_analysis(args):
+    call_id = tool_specs.operation_call_id(args.get("idempotency_key"))
+    if call_id is None:
+        return dict(tool_specs.IDEMPOTENCY_KEY_ERROR)
     return supercmo_skills.video_analysis(
         video=args.get("video"),
         prompt=args.get("prompt"),
         dry_run=bool(args.get("dry_run", False)),
+        call_id=call_id,
     )
 
 

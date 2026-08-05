@@ -27,23 +27,29 @@ IMAGE_GENERATE = {
 def image_generate(args):
     reqs = args.get("requests")
     dry_run = bool(args.get("dry_run", False))
+    operation_key = args.get("idempotency_key")
+    if tool_specs.operation_call_id(operation_key) is None:
+        return dict(tool_specs.IDEMPOTENCY_KEY_ERROR)
     if not isinstance(reqs, list) or not reqs:
         return {"ok": False, "error": "requests must be a non-empty list of image request objects (1-10)."}
     if len(reqs) > 10:
         return {"ok": False, "error": f"at most 10 requests per call; got {len(reqs)}.",
                 "hint": "split into more calls"}
-    def _one(r):
+    def _one(indexed):
+        index, r = indexed
         if not isinstance(r, dict) or not r.get("prompt"):
             return {"ok": False, "error": "each request must be an object with a prompt."}
         return supercmo_skills.image_generate(
             prompt=r.get("prompt"), model=r.get("model"), aspect_ratio=r.get("aspect_ratio"),
-            resolution=r.get("resolution"), reference_images=r.get("reference_images"), dry_run=dry_run)
+            resolution=r.get("resolution"), reference_images=r.get("reference_images"), dry_run=dry_run,
+            call_id=tool_specs.operation_call_id(operation_key, index))
 
+    indexed = list(enumerate(reqs))
     if dry_run or len(reqs) == 1:
-        results = [_one(r) for r in reqs]
+        results = [_one(item) for item in indexed]
     else:                                     # multiple images → generate them in parallel
         with ThreadPoolExecutor(max_workers=min(8, len(reqs))) as ex:
-            results = list(ex.map(_one, reqs))
+            results = list(ex.map(_one, indexed))
     pending = sum(1 for r in results if supercmo_skills.is_pending(r))
     out = {"ok": all(supercmo_skills.job_ok(x) for x in results), "count": len(results), "results": results}
     if pending:

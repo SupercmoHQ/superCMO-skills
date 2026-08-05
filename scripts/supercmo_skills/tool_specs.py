@@ -8,6 +8,28 @@ def object_schema(properties, required):
     return {"type": "object", "properties": properties, "required": required, "additionalProperties": False}
 
 
+IDEMPOTENCY_KEY_PROPERTY = {
+    "type": "string",
+    "minLength": 1,
+    "maxLength": 100,
+    "description": "A unique value for this intentional generation. Reuse it only when retrying "
+    "the exact same tool call; use a new value for a new requested output.",
+}
+
+
+def operation_call_id(value, index=None):
+    """Validate a caller-owned operation key and optionally scope it to one batch item."""
+    if not isinstance(value, str) or not value.strip() or len(value) > 100:
+        return None
+    return value if index is None else f"{value}:{index}"
+
+
+IDEMPOTENCY_KEY_ERROR = {
+    "ok": False,
+    "error": "idempotency_key must be a non-empty string of at most 100 characters.",
+}
+
+
 # ---------------------------------------------------------------------------- image_generate
 IMAGE_GENERATE_DESCRIPTION = (
     "For a user's image request, load the `generating-images` skill BEFORE calling this — it picks "
@@ -73,13 +95,14 @@ IMAGE_GENERATE_PROPERTIES = {
             "additionalProperties": False,
         },
     },
+    "idempotency_key": IDEMPOTENCY_KEY_PROPERTY,
     "dry_run": {
         "type": "boolean",
         "description": "If true, return the requests that would be sent (keys masked), make no API call.",
         "default": False,
     },
 }
-IMAGE_GENERATE_REQUIRED = ["requests"]
+IMAGE_GENERATE_REQUIRED = ["requests", "idempotency_key"]
 
 
 # ---------------------------------------------------------------------------- list_image_models
@@ -198,13 +221,14 @@ VIDEO_GENERATE_PROPERTIES = {
             "additionalProperties": False,
         },
     },
+    "idempotency_key": IDEMPOTENCY_KEY_PROPERTY,
     "dry_run": {
         "type": "boolean",
         "description": "If true, return the requests that would be sent (keys masked), make no API call.",
         "default": False,
     },
 }
-VIDEO_GENERATE_REQUIRED = ["requests"]
+VIDEO_GENERATE_REQUIRED = ["requests", "idempotency_key"]
 
 
 # ---------------------------------------------------------------------------- audio_generate
@@ -304,13 +328,14 @@ AUDIO_GENERATE_PROPERTIES = {
             "additionalProperties": False,
         },
     },
+    "idempotency_key": IDEMPOTENCY_KEY_PROPERTY,
     "dry_run": {
         "type": "boolean",
         "description": "If true, return the requests that would be sent (keys masked), make no API call.",
         "default": False,
     },
 }
-AUDIO_GENERATE_REQUIRED = ["requests"]
+AUDIO_GENERATE_REQUIRED = ["requests", "idempotency_key"]
 
 
 # ---------------------------------------------------------------------------- list_audio_models

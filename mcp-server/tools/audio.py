@@ -26,13 +26,17 @@ AUDIO_GENERATE = {
 def audio_generate(args):
     reqs = args.get("requests")
     dry_run = bool(args.get("dry_run", False))
+    operation_key = args.get("idempotency_key")
+    if tool_specs.operation_call_id(operation_key) is None:
+        return dict(tool_specs.IDEMPOTENCY_KEY_ERROR)
     if not isinstance(reqs, list) or not reqs:
         return {"ok": False, "error": "requests must be a non-empty list of audio request objects (1-10)."}
     if len(reqs) > 10:
         return {"ok": False, "error": f"at most 10 requests per call; got {len(reqs)}.",
                 "hint": "split into more calls"}
 
-    def _one(r):
+    def _one(indexed):
+        index, r = indexed
         if not isinstance(r, dict) or not r.get("text"):
             return {"ok": False, "error": "each request must be an object with the text to speak."}
         knobs = {}
@@ -45,13 +49,15 @@ def audio_generate(args):
                 return {"ok": False, "error": f"{k} must be a number; got {r[k]!r}."}
         return supercmo_skills.audio_generate(
             text=r.get("text"), type=r.get("type") or "speech", model=r.get("model"),
-            voice=r.get("voice"), format=r.get("format"), dry_run=dry_run, **knobs)
+            voice=r.get("voice"), format=r.get("format"), dry_run=dry_run,
+            call_id=tool_specs.operation_call_id(operation_key, index), **knobs)
 
+    indexed = list(enumerate(reqs))
     if dry_run or len(reqs) == 1:
-        results = [_one(r) for r in reqs]
+        results = [_one(item) for item in indexed]
     else:
         with ThreadPoolExecutor(max_workers=min(8, len(reqs))) as ex:
-            results = list(ex.map(_one, reqs))
+            results = list(ex.map(_one, indexed))
     pending = sum(1 for r in results if supercmo_skills.is_pending(r))
     out = {"ok": all(supercmo_skills.job_ok(x) for x in results), "count": len(results), "results": results}
     if pending:

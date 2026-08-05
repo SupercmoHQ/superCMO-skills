@@ -22,7 +22,7 @@ Describe what you want to make - like a UGC video, a product launch campaign, or
 | | |
 | --- | --- |
 | **No tool hopping** | Making one video ad today means jumping between tools: script in one, images in another, voice in a third, video in a fourth, then stitching it in an editor. SuperCMO does it all from one brief. And it's not a black box — you can review, edit, or change direction at any step. |
-| **Pay per use, no subscription** | Most marketing tools charge a monthly fee whether you use them or not. SuperCMO doesn't. You bring your own API keys and pay only for what you generate. No lock-in. |
+| **Pay per use, no subscription** | Most marketing tools charge a monthly fee whether you use them or not. SuperCMO doesn't — you pay only for what you generate. Bring your own vendor keys (free), or generate on SuperCMO's keys and pay per use. No lock-in. |
 | **The right model, picked for you** | Every AI image/video model works differently and needs different prompting. SuperCMO's skills already know which model fits each job and how to prompt it. You write the brief; it handles the rest. |
 | **Editing included** | It doesn't just hand back a raw 10-second clip. It generates the media, splits long clips, trims footage, adds voiceover, and stitches everything into a finished asset. |
 | **Runs where you already work** | It runs inside the agents you already use. Your keys and files stay on your machine. It works inside Claude Code, Cursor, OpenAI Codex, Hermes, Openclaw, or any agent that supports the Agent Skills spec. |
@@ -34,7 +34,7 @@ Describe what you want to make - like a UGC video, a product launch campaign, or
 **Paste this to your coding agent** (Claude Code, Cursor, Codex, …):
 
 ```
-Run `npx --yes github:SupercmoHQ/superCMO-skills --all`. Tell me whether it succeeded and what I need to do next. Don't set keys or check that the tools work — I'll do both after I restart.
+Run `npx --yes github:SupercmoHQ/superCMO-skills --all`. Tell me whether it succeeded, then follow the next steps it prints to set up a key.
 ```
 
 Prefer to run it yourself:
@@ -43,8 +43,7 @@ Prefer to run it yourself:
 npx --yes github:SupercmoHQ/superCMO-skills --all   # every detected host
 ```
 
-Then set a key - see [Bring your own keys](#bring-your-own-keys). Prefer a preview before spending?
-Every generation supports `dry_run` - the exact request and cost, no API call.
+Prefer a preview before spending? Every generation supports `dry_run` — the exact request and cost, no API call.
 
 ## How the skills work together
 
@@ -125,9 +124,24 @@ codex plugin add supercmo@superCMO-skills
 plugin). Copying a single `skills/<name>/` folder gives you the instructions but **not** the
 generation tools.
 
-## Bring your own keys
+## Set up a key
 
-Generation runs on **your keys** — requests go directly to the model vendor; nothing routes through SuperCMO.
+Generation needs a key. **Two ways — pick one:**
+
+### Option A · Managed — one command
+
+Generate on **SuperCMO's keys, pay per use** — no vendor signups, nothing to paste.
+
+```bash
+npx --yes github:SupercmoHQ/superCMO-skills login
+```
+
+Opens SuperCMO in your browser to **sign in and authorize this device**; the key is written to
+`~/.supercmo/.env` automatically. Buy credits in the web app when you're ready.
+
+### Option B · Bring your own keys — free
+
+Bring your own vendor keys — requests go **directly to the model vendor; nothing routes through SuperCMO**.
 
 **One file, every host.** The installer creates `~/.supercmo/.env`; the MCP server loads your keys from
 there on any host (Claude Code, Cursor, Codex, …). Open it, add a key, restart your host:
@@ -149,13 +163,14 @@ FIRECRAWL_API_KEY=         # url extraction (optional)   — https://firecrawl.d
 
 ## Security & trust
 
-These skills run inside your agent and generate on your keys. Exactly what happens:
+These skills run inside your agent. Exactly what happens:
 
 * **Open source & inspectable.** Every skill, script, and the MCP server lives in this repo under
   Apache-2.0 — read, diff, or pin before you run it.
-* **Keys stay local.** They live in `~/.supercmo/.env` (or your host's MCP config `env` / your shell);
-  the server reads them from its process environment. Requests go **directly to the vendor** — nothing
-  routes through SuperCMO.
+* **Your keys stay local (BYOK).** With your own vendor keys, they live in `~/.supercmo/.env` (or your
+  host's MCP config `env` / your shell); the server reads them from its process environment and requests
+  go **directly to the vendor — nothing routes through SuperCMO**. With the **managed** key, requests go
+  to SuperCMO's proxy (billed to your credits) — you never hand us a vendor key.
 * **The MCP server is local + minimal.** Standard-library Python (`mcp-server/server.py`), no
   `pip install`, starts only when your host enables the plugin.
 * **Dry-run everything.** Generation tools support `dry_run` - a free preview of the exact request

@@ -13,6 +13,7 @@ const config = require('./config');
 const json = require('./jsonhosts');
 const cli = require('./clihosts');
 const components = require('./components');
+const install = require('../install');
 
 // Fresh temp HOME with a known key set: FAL_KEY present, the others absent.
 function setup() {
@@ -181,4 +182,179 @@ test('components: removeSkills removes our skills, keeps the user skill', () => 
   components.removeSkills(dest);
   assert.ok(!fs.existsSync(path.join(dest, names[0])), 'our skill removed');
   assert.ok(fs.existsSync(path.join(dest, 'user-skill', 'keep.md')), 'user skill kept');
+});
+
+// --- `supercmo login` (RFC 8628 device grant) — setKey writer + runLogin client ---
+
+test('setKey appends SUPERCMO_API_KEY, preserves other keys, and is idempotent', () => {
+  const o = setup();
+  config.ensureKeyFile();
+  const file = config.setKey('SUPERCMO_API_KEY', 'sk-scmo-abc');
+  let body = fs.readFileSync(file, 'utf8');
+  assert.ok(body.includes('SUPERCMO_API_KEY=sk-scmo-abc'), 'key written');
+  assert.ok(body.includes('FAL_KEY='), 'placeholder preserved');
+  config.setKey('SUPERCMO_API_KEY', 'sk-scmo-xyz');
+  body = fs.readFileSync(file, 'utf8');
+  assert.equal((body.match(/SUPERCMO_API_KEY=/g) || []).length, 1, 'exactly one line');
+  assert.ok(body.includes('sk-scmo-xyz') && !body.includes('sk-scmo-abc'), 'overwritten in place');
+});
+
+test('setKey fills an existing empty SUPERCMO_API_KEY= and never clobbers a real user key', () => {
+  const o = setup();
+  const file = path.join(o.home, '.supercmo', '.env');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, 'FAL_KEY=mykey\nSUPERCMO_API_KEY=\n');
+  config.setKey('SUPERCMO_API_KEY', 'sk-scmo-new');
+  assert.equal(
+    fs.readFileSync(file, 'utf8').trim(),
+    'FAL_KEY=mykey\nSUPERCMO_API_KEY=sk-scmo-new',
+    'filled the empty line, user key intact',
+  );
+});
+
+test('setKey rejects control characters and corrects existing key-file permissions', () => {
+  const o = setup();
+  const file = path.join(o.home, '.supercmo', '.env');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, 'FAL_KEY=mykey\n', { mode: 0o644 });
+  assert.throws(
+    () => config.setKey('SUPERCMO_API_KEY', 'valid-token\nINJECTED=value'),
+    /invalid credential/,
+  );
+  assert.equal(fs.readFileSync(file, 'utf8'), 'FAL_KEY=mykey\n', 'invalid token changed nothing');
+  config.setKey('SUPERCMO_API_KEY', 'valid-token');
+  if (process.platform !== 'win32') {
+    assert.equal(fs.statSync(file).mode & 0o777, 0o600, 'existing file tightened to owner-only');
+  }
+});
+
+test('runLogin: start -> poll pending -> poll approved -> writes the key to ~/.supercmo/.env', async () => {
+  const o = setup();
+  const responses = [
+    { ok: true, json: async () => ({ device_code: 'dc', user_code: 'ABCD-2345', verification_uri_complete: 'https://x/activate?code=ABCD-2345', interval: 5, expires_in: 600 }) },
+    { ok: false, status: 400, json: async () => ({ error: 'authorization_pending' }) },
+    { ok: true, json: async () => ({ access_token: 'sk-scmo-frombackend', token_type: 'Bearer' }) },
+  ];
+  let call = 0;
+  const opened = [];
+  const code = await install.runLogin([], {
+    fetch: async () => responses[call++],
+    openBrowser: (u) => opened.push(u),
+    sleep: async () => {},
+    log: () => {},
+  });
+  assert.equal(code, 0, 'returns success');
+  assert.equal(opened.length, 1, 'browser opened once');
+  assert.equal(opened[0], 'https://x/activate?code=ABCD-2345', 'opened the verification URL');
+  const body = fs.readFileSync(path.join(o.home, '.supercmo', '.env'), 'utf8');
+  assert.ok(body.includes('SUPERCMO_API_KEY=sk-scmo-frombackend'), 'key delivered to the CLI written to .env');
+});
+
+test('runLogin: a terminal error (access_denied) throws and writes no key', async () => {
+  const o = setup();
+  const responses = [
+    { ok: true, json: async () => ({ device_code: 'dc', user_code: 'AB', verification_uri_complete: 'https://x/activate', interval: 5, expires_in: 600 }) },
+    { ok: false, status: 400, json: async () => ({ error: 'access_denied' }) },
+  ];
+  let call = 0;
+  await assert.rejects(
+    install.runLogin([], { fetch: async () => responses[call++], openBrowser: () => {}, sleep: async () => {}, log: () => {} }),
+    /denied/i,
+  );
+  const file = path.join(o.home, '.supercmo', '.env');
+  if (fs.existsSync(file)) assert.ok(!fs.readFileSync(file, 'utf8').includes('SUPERCMO_API_KEY='), 'no key on failure');
+});
+
+test('runLogin rejects an unsafe verification URL before opening a browser', async () => {
+  let opened = false;
+  await assert.rejects(
+    install.runLogin([], {
+      fetch: async () => ({
+        ok: true,
+        json: async () => ({
+          device_code: 'dc',
+          verification_uri_complete: 'file:///C:/Windows/System32/calc.exe',
+          expires_in: 600,
+        }),
+      }),
+      openBrowser: () => { opened = true; },
+      sleep: async () => {},
+      log: () => {},
+    }),
+    /unsafe verification URL/,
+  );
+  assert.equal(opened, false);
+});
+
+test('runLogin rejects a multiline managed token without modifying the key file', async () => {
+  const o = setup();
+  const responses = [
+    { ok: true, json: async () => ({ device_code: 'dc', verification_uri_complete: 'https://x/activate', interval: 1, expires_in: 600 }) },
+    { ok: true, json: async () => ({ access_token: 'valid-token\nFAL_KEY=injected' }) },
+  ];
+  let call = 0;
+  await assert.rejects(
+    install.runLogin([], {
+      fetch: async () => responses[call++],
+      openBrowser: () => {},
+      sleep: async () => {},
+      log: () => {},
+    }),
+    /invalid credential/,
+  );
+  const file = path.join(o.home, '.supercmo', '.env');
+  if (fs.existsSync(file)) assert.ok(!fs.readFileSync(file, 'utf8').includes('injected'));
+});
+
+function stalledFetch(_url, options) {
+  return new Promise((_resolve, reject) => {
+    options.signal.addEventListener('abort', () => {
+      const error = new Error('aborted');
+      error.name = 'AbortError';
+      reject(error);
+    }, { once: true });
+  });
+}
+
+test('runLogin: a stalled start request aborts at the per-request deadline', async () => {
+  await assert.rejects(
+    install.runLogin([], {
+      fetch: stalledFetch,
+      openBrowser: () => {},
+      sleep: async () => {},
+      log: () => {},
+      requestTimeoutMs: 5,
+    }),
+    /could not start login \(request timed out\)/,
+  );
+});
+
+test('runLogin: stalled token polls cannot outlive the device-code expiry', async () => {
+  let calls = 0;
+  const fetch = async (url, options) => {
+    calls += 1;
+    if (calls === 1) {
+      return {
+        ok: true,
+        json: async () => ({
+          device_code: 'dc',
+          verification_uri_complete: 'https://x/activate',
+          interval: 1,
+          expires_in: 0.02,
+        }),
+      };
+    }
+    return stalledFetch(url, options);
+  };
+  await assert.rejects(
+    install.runLogin([], {
+      fetch,
+      openBrowser: () => {},
+      sleep: async () => {},
+      log: () => {},
+      requestTimeoutMs: 5,
+    }),
+    /login timed out/,
+  );
+  assert.ok(calls >= 2, 'at least one token poll was attempted');
 });
