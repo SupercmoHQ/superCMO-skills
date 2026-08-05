@@ -37,7 +37,7 @@ def main():
     m = st["managed"]
     print(f"  {'✓' if m['set'] else '·'} {m['env_var']:<22} {'set' if m['set'] else 'missing':<8} {m['note']}")
     if not m["set"]:
-        print(f"      → managed key: buy credits + mint at {m['signup']}")
+        print(f"      → {m['setup']}")
 
     print("\n  capabilities ready with current keys:")
     for cap in ("image", "video", "audio"):

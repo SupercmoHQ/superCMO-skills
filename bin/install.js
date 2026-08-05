@@ -13,6 +13,7 @@ const {
   home,
   installRuntime,
   ensureKeyFile,
+  setKey,
   SERVER_NAME,
 } = require("./lib/config");
 const cli = require("./lib/clihosts");
@@ -172,6 +173,7 @@ function parseArgs(argv) {
 function usage() {
   console.log(`SuperCMO installer
 
+  supercmo-install login                         # sign in — provisions your managed key
   supercmo-install --codex                       # Codex (codex mcp add)
   supercmo-install --claude --project-dir <dir>  # Claude Code standalone; else use the plugin
   supercmo-install --vscode                      # VS Code (code --add-mcp)
@@ -280,10 +282,20 @@ function runInstall(hosts, opts) {
     }
   }
   console.log("");
+  console.log("Next — set up a key. Two ways, pick one:");
+  console.log("");
+  console.log("  Option A · Managed (one command) — generate on SuperCMO's keys, pay per use:");
+  console.log("      npx --yes github:SupercmoHQ/superCMO-skills login");
   console.log(
-    "Last step — add the key(s) for what you want to do, then RESTART your host:",
+    "      Opens SuperCMO in your browser to sign in + authorize this device; the key is written",
+  );
+  console.log(
+    `      to ${kf.file} automatically. Buy credits in the web app (no card needed to sign in).`,
   );
   console.log("");
+  console.log(
+    "  Option B · Bring your own keys (free) — add a vendor key, then RESTART your host:",
+  );
   // Each BYOK key → what it unlocks. FAL drives image_generate + video_generate; GEMINI drives
   // image_analysis + video_analysis (used across the product, image and video skills); ELEVENLABS
   // drives audio; FIRECRAWL drives url_extraction. Ordered by how much each one gives you.
@@ -306,22 +318,174 @@ function runInstall(hosts, opts) {
     ],
   ];
   for (const [env, cap, url] of KEY_GUIDE)
-    console.log(`  ${env.padEnd(19)}  ${cap.padEnd(37)}  ${url}`);
+    console.log(`      ${env.padEnd(19)}  ${cap.padEnd(37)}  ${url}`);
+  console.log(
+    `      Start with FAL_KEY (covers image + video). Put keys in ${kf.file}; they load after a restart.`,
+  );
   console.log("");
   console.log(
-    "  Start with FAL_KEY (covers image + video); add GEMINI_API_KEY to analyze a photo",
+    "  AI agent setting this up: show the user BOTH options and ask which they want —",
   );
   console.log(
-    `  or video and generate from it. Put keys in ${kf.file} or export them`,
-  );
-  console.log(
-    "  in your shell — they load only after a host restart, not in this session.",
+    "  do NOT run the login command unless the user chooses the managed option.",
   );
   return failures;
 }
 
+// ── `supercmo login` — OAuth 2.0 Device Authorization Grant (RFC 8628) client ──────────────
+// Opens the browser to authorize, polls the backend, and writes the managed SUPERCMO_API_KEY
+// into ~/.supercmo/.env — no copy-paste. The key is never shown in the browser; it comes back
+// only on the CLI's own token poll. Same standard as `gh auth login` / Stripe CLI.
+function deviceBase() {
+  const root = (process.env.SUPERCMO_API_URL || "https://api.getsupercmo.ai").replace(/\/+$/, "");
+  return `${root}/api/v1/supercmo/auth/device`;
+}
+
+function openBrowser(url) {
+  const cmd = process.platform === "darwin"
+    ? "open"
+    : process.platform === "win32"
+      ? "rundll32"
+      : "xdg-open";
+  const args = process.platform === "win32" ? ["url.dll,FileProtocolHandler", url] : [url];
+  try {
+    spawnSync(cmd, args, { stdio: "ignore" });
+  } catch (_) {
+    /* headless / no browser — the printed URL is the fallback */
+  }
+}
+
+const _sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const LOGIN_REQUEST_TIMEOUT_MS = 15_000;
+
+function loginVerificationUrl(value) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch (_) {
+    throw new Error("login service returned an invalid verification URL.");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
+    throw new Error("login service returned an unsafe verification URL.");
+  return parsed.href;
+}
+
+function loginErrorMessage(code, status) {
+  switch (code) {
+    case "expired_token":
+      return "the login request expired. Re-run `npx --yes github:SupercmoHQ/superCMO-skills login`.";
+    case "access_denied":
+      return "the request was denied in the browser.";
+    case "invalid_grant":
+      return "invalid or already-used login request. Re-run `npx --yes github:SupercmoHQ/superCMO-skills login`.";
+    default:
+      return `login failed${code ? ` (${code})` : ` (HTTP ${status})`}.`;
+  }
+}
+
+// deps = { fetch, openBrowser, sleep, log, requestTimeoutMs } — injected in tests; real impls by default.
+async function runLogin(_argv, deps = {}) {
+  const doFetch = deps.fetch || globalThis.fetch;
+  const open = deps.openBrowser || openBrowser;
+  const nap = deps.sleep || _sleep;
+  const log = deps.log || console.log;
+  const requestTimeoutMs = deps.requestTimeoutMs || LOGIN_REQUEST_TIMEOUT_MS;
+  if (typeof doFetch !== "function")
+    throw new Error("fetch is unavailable — Node 18+ is required for `login`.");
+  const base = deviceBase();
+
+  async function fetchWithTimeout(url, options, timeoutMs = requestTimeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await doFetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  let startRes;
+  try {
+    startRes = await fetchWithTimeout(`${base}/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_label: `supercmo-cli ${process.platform}` }),
+    });
+  } catch (error) {
+    if (error && error.name === "AbortError")
+      throw new Error("could not start login (request timed out).");
+    throw error;
+  }
+  if (!startRes.ok) throw new Error(`could not start login (HTTP ${startRes.status}).`);
+  const s = await startRes.json();
+  const deviceCode = s.device_code;
+  const url = loginVerificationUrl(s.verification_uri_complete || s.verification_uri);
+  let interval = Math.max(1, Number(s.interval) || 5);
+  const expiresAt = Date.now() + (Number(s.expires_in) || 600) * 1000;
+
+  log("");
+  log('  Open this URL and click "Authorize this device":');
+  log(`    ${url}`);
+  if (s.user_code) log(`  Confirm the code shown is:  ${s.user_code}`);
+  log("");
+  open(url);
+
+  while (Date.now() < expiresAt) {
+    await nap(interval * 1000);
+    const remainingMs = expiresAt - Date.now();
+    if (remainingMs <= 0) break;
+    let res;
+    try {
+      res = await fetchWithTimeout(
+        `${base}/token`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ device_code: deviceCode }),
+        },
+        Math.min(requestTimeoutMs, remainingMs),
+      );
+    } catch (error) {
+      if (error && error.name === "AbortError") continue;
+      throw error;
+    }
+    if (res.ok) {
+      const body = await res.json();
+      if (!body.access_token) throw new Error("login succeeded but no key was returned.");
+      const file = setKey("SUPERCMO_API_KEY", body.access_token);
+      log(`✓ Signed in. Key saved to ${file}`);
+      log("  Run a generation to try it. (If SUPERCMO_API_KEY is exported in your shell, that");
+      log("  value wins over the file — unset it to use the new key.)");
+      return 0;
+    }
+    let err = {};
+    try {
+      err = await res.json();
+    } catch (_) {
+      /* non-JSON error body */
+    }
+    if (err.error === "authorization_pending") continue;
+    if (err.error === "slow_down") {
+      interval += 5;
+      continue;
+    }
+    throw new Error(loginErrorMessage(err.error, res.status));
+  }
+  throw new Error("login timed out. Re-run `npx --yes github:SupercmoHQ/superCMO-skills login`.");
+}
+
 function main() {
-  const opts = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (argv[0] === "login") {
+    runLogin(argv.slice(1))
+      .then((code) => process.exit(code || 0))
+      .catch((e) => {
+        console.error(`login: ${e.message}`);
+        process.exit(1);
+      });
+    return;
+  }
+  const opts = parseArgs(argv);
   let hosts = opts.hosts;
   if (opts.all) hosts = Object.keys(HOSTS).filter((h) => HOSTS[h].detect());
   if (!hosts.length) {
@@ -334,4 +498,6 @@ function main() {
   process.exit(failures ? 1 : 0);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { runLogin };
