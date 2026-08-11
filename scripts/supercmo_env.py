@@ -214,8 +214,12 @@ _SSRF_MAX_BYTES = 512 * 1024 * 1024   # 512 MB cap on a downloaded asset
 
 def _ip_is_public(ip_str):
     a = ipaddress.ip_address(ip_str)
-    if a.version == 6 and a.ipv4_mapped is not None:   # ::ffff:169.254.169.254 etc.
-        a = a.ipv4_mapped
+    if a.version == 6:
+        # An IPv6 address can EMBED an IPv4 one (::ffff:x mapped, or 2002:x::/16 6to4). Validate the
+        # embedded IPv4, else e.g. 2002:a9fe:a9fe:: reaches 169.254.169.254 (cloud metadata) as "global".
+        embedded = a.ipv4_mapped or a.sixtofour
+        if embedded is not None:
+            a = embedded
     return not (a.is_private or a.is_loopback or a.is_link_local or a.is_reserved
                 or a.is_multicast or a.is_unspecified) and a.is_global
 
@@ -431,8 +435,17 @@ def proxy_spec(capability, body):
 
 
 def _selftest():
-    """Assert key-file loading and the managed-proxy error/idempotency contract."""
+    """Assert the SSRF IP classifier, key-file loading and the managed-proxy error/idempotency contract."""
     global _request
+    # SSRF classifier: an embedded-IPv4 private/metadata address must NOT read as public (mapped + 6to4).
+    assert _ip_is_public("8.8.8.8") is True
+    assert _ip_is_public("127.0.0.1") is False
+    assert _ip_is_public("169.254.169.254") is False
+    assert _ip_is_public("2002:a9fe:a9fe::") is False       # 6to4 -> 169.254.169.254 (cloud metadata)
+    assert _ip_is_public("2002:7f00:0001::") is False       # 6to4 -> 127.0.0.1
+    assert _ip_is_public("::ffff:10.0.0.1") is False        # ipv4-mapped -> 10.0.0.1
+    assert _ip_is_public("2606:4700:4700::1111") is True    # real public IPv6 (Cloudflare)
+    assert _ip_is_public("2002:0808:0808::") is True        # 6to4 wrapping a PUBLIC IPv4 stays public
     import tempfile
     scratch_root = os.path.dirname(__file__)
     with tempfile.TemporaryDirectory(dir=scratch_root) as scratch:
