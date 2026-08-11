@@ -11,40 +11,29 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 const {
   home,
-  installRuntime,
   ensureKeyFile,
   setKey,
   SERVER_NAME,
+  SERVER_SPEC,
 } = require("./lib/config");
 const cli = require("./lib/clihosts");
 const json = require("./lib/jsonhosts");
 const components = require("./lib/components");
 
-// Find a working Python 3 interpreter and how to invoke it (command + any prefix args).
-function detectPython() {
-  const candidates =
-    process.platform === "win32"
-      ? [
-          ["py", ["-3"]],
-          ["python", []],
-          ["python3", []],
-        ]
-      : [
-          ["python3", []],
-          ["python", []],
-        ];
-  for (const [command, argsPrefix] of candidates) {
+// Confirm `uvx` is available — the MCP server runs via `uvx supercmo-skills@<version>` from PyPI
+// (uv provisions Python + deps, cached). Returns the uvx command name.
+function detectUv() {
+  for (const command of ["uvx"]) {
     try {
-      const r = spawnSync(command, [...argsPrefix, "--version"], {
-        stdio: "ignore",
-      });
-      if (r.status === 0) return { command, argsPrefix };
+      const r = spawnSync(command, ["--version"], { stdio: "ignore" });
+      if (r.status === 0) return command;
     } catch (_) {
-      /* not found, try next */
+      /* not found */
     }
   }
   throw new Error(
-    `no Python 3 found (tried ${candidates.map((c) => c[0]).join(", ")}). Install Python 3 and re-run.`,
+    "uv not found. SuperCMO runs its MCP server with uvx. Install uv " +
+      "(https://docs.astral.sh/uv/getting-started/installation/) and re-run.",
   );
 }
 
@@ -230,11 +219,15 @@ function runUninstall(hosts, opts) {
 }
 
 function runInstall(hosts, opts) {
-  const py = detectPython();
-  const serverPy = installRuntime(); // stable copy at ~/.supercmo/runtime (npx-cache-proof)
+  detectUv(); // throws with install guidance if uv/uvx is missing
+  // Every host runs the same command: `uvx supercmo-skills@<version>` — uvx fetches the pinned
+  // package from PyPI and runs its console script (provisions Python + deps, cached). No env block —
+  // keys load from ~/.supercmo/.env, which the server reads on startup.
+  const command = "uvx";
+  const argsPrefix = [];
+  const serverPy = SERVER_SPEC; // "supercmo-skills@<version>" (dist == script name)
   const kf = ensureKeyFile(); // ~/.supercmo/.env — the server loads keys from here on every host
-  console.log(`· python: ${[py.command, ...py.argsPrefix].join(" ")}`);
-  console.log(`· runtime: ${serverPy}`);
+  console.log(`· server: uvx ${SERVER_SPEC}`);
   console.log(
     `· keys:    ${kf.file} ${kf.created ? "(created)" : "(exists — kept your keys)"}`,
   );
@@ -246,8 +239,8 @@ function runInstall(hosts, opts) {
       if (host.kind === "cli") {
         const r = cli.install(host.key, {
           name: SERVER_NAME,
-          command: py.command,
-          args: [...py.argsPrefix, serverPy],
+          command,
+          args: [...argsPrefix, serverPy],
         });
         if (r.cliMissing) {
           console.log(
@@ -266,8 +259,8 @@ function runInstall(hosts, opts) {
           projectDir: opts.projectDir,
           force: opts.force,
           serverPy,
-          command: py.command,
-          argsPrefix: py.argsPrefix,
+          command,
+          argsPrefix,
         });
         console.log(`✓ ${host.label}: wrote ${r.file}`);
         for (const n of r.notes || []) console.log(`  · ${n}`);

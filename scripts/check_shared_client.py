@@ -8,7 +8,7 @@ caller inherits it) instead of a per-server rewrite. `scripts/supercmo_env.py` i
 file allowed to use stdlib urllib — it is not in the scanned dirs.
 
 Fails (exit 1) on any direct import of a low-level HTTP/network module in:
-  skills/ · mcp-server/ · scripts/supercmo_skills/
+  skills/ · scripts/supercmo_skills/ (incl. the mcp server)
 AST-based, so comments/strings never trip it.
 """
 import ast
@@ -19,7 +19,7 @@ import sys
 THIRD_PARTY = {"requests", "httpx", "aiohttp", "urllib3", "pycurl"}
 # Exact stdlib network modules that actually open connections.
 BANNED_FULL = {"urllib.request", "http.client", "socket"} | THIRD_PARTY
-SCAN_DIRS = ["skills", "mcp-server", os.path.join("scripts", "supercmo_skills")]
+SCAN_DIRS = ["skills", os.path.join("scripts", "supercmo_skills")]
 # Documented exemptions: files that legitimately do non-vendor egress and are NOT brokered.
 # telemetry.py POSTs first-party, anonymous usage events to the public telemetry endpoint — not a
 # vendor API call the managed proxy intercepts — so it is out of scope of the vendor-seam rule.
@@ -72,7 +72,7 @@ def main():
             print(f"   {path}: {why}")
         print("   Fix: `import supercmo_env` and call supercmo_env._request / _request_raw instead of raw HTTP.")
         return 1
-    print("✓ Shared-client seam gate PASSED (no raw HTTP in skills/, mcp-server/, "
+    print("✓ Shared-client seam gate PASSED (no raw HTTP in skills/, "
           "supercmo_skills/).")
     return 0
 

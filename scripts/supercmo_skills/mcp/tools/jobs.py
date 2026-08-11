@@ -4,16 +4,11 @@ Rejoins a long-running generation submitted earlier (a `video_generate` result t
 `{status:"pending", ...}`) and returns the finished media, or the same pending handle if it's still
 running. All the submit/poll/rejoin logic lives in supercmo_skills; the schema lives once in tool_specs.
 """
-import os
-import sys
 from concurrent.futures import ThreadPoolExecutor
 
-PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
-
-import registry  # noqa: E402
-import supercmo_skills  # noqa: E402
-from supercmo_skills import tool_specs  # noqa: E402
+from .. import registry
+import supercmo_skills
+from supercmo_skills import tool_specs
 
 
 JOB_STATUS = {

@@ -8,7 +8,7 @@
 
 - [ ] New skill
 - [ ] Change to an existing skill
-- [ ] Shared script / MCP tool (`scripts/`, `mcp-server/`)
+- [ ] Shared script / MCP tool (`scripts/`, `scripts/supercmo_skills/mcp/`)
 - [ ] Docs / repo infrastructure
 
 ## Checklist
