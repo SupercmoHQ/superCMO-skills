@@ -4,17 +4,14 @@
 Exposes the generation tools (see tools/) over MCP stdio.
 """
 import json
-import os
 import sys
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
-
-import registry
-import tools  # noqa: F401,E402 (registers tools on import)
+from . import registry
+from . import tools  # noqa: F401 (registers tools on import)
 
 try:
-    from supercmo_skills import telemetry  # noqa: E402 — anonymous, opt-out usage counts
+    from supercmo_skills import telemetry  # anonymous, opt-out usage counts
 except Exception:  # telemetry is best-effort; never block the server on it
     telemetry = None
 if telemetry is not None:
@@ -28,7 +25,7 @@ if telemetry is not None:
 _GEN_TOOLS = {"image_generate", "video_generate", "text_to_speech", "url_extraction", "image_analysis"}
 
 SERVER_NAME = "supercmo"
-SERVER_VERSION = "0.1.5"
+SERVER_VERSION = "0.1.7"
 DEFAULT_PROTOCOL = "2025-06-18"
 
 

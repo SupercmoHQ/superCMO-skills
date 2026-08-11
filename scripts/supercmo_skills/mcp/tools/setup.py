@@ -4,14 +4,9 @@ Reports which media keys are configured and which capabilities are ready, so any
 Cursor, Codex) can check setup identically with ZERO path knowledge — no `python3 scripts/doctor.py`.
 All logic lives in supercmo_skills.readiness; this only declares the schema and forwards.
 """
-import os
-import sys
 
-PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
-
-import registry  # noqa: E402
-from supercmo_skills import readiness  # noqa: E402
+from .. import registry
+from supercmo_skills import readiness
 
 
 SETUP_STATUS = {

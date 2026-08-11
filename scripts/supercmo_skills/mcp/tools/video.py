@@ -3,17 +3,11 @@
 The tool name (`video_generate`) matches the OSS app's custom tool so one SKILL.md drives it. All
 catalog + routing + vendor logic lives in supercmo_skills; the schema lives once in tool_specs.
 """
-import os
-import sys
 from concurrent.futures import ThreadPoolExecutor
 
-# supercmo_skills lives in the plugin's scripts/ dir (repo_root/scripts).
-PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
-
-import registry  # noqa: E402
-import supercmo_skills  # noqa: E402
-from supercmo_skills import catalog, tool_specs  # noqa: E402
+from .. import registry
+import supercmo_skills
+from supercmo_skills import catalog, tool_specs
 
 
 VIDEO_GENERATE = {

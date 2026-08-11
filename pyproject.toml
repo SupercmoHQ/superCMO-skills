@@ -33,13 +33,19 @@ Homepage = "https://github.com/SupercmoHQ/superCMO-skills"
 Repository = "https://github.com/SupercmoHQ/superCMO-skills"
 Issues = "https://github.com/SupercmoHQ/superCMO-skills/issues"
 
+# The MCP server console entrypoint. Script name == distribution name so `uvx supercmo-skills`
+# resolves with no `--from` (the reference-server convention; server.json points at this).
+[project.scripts]
+supercmo-skills = "supercmo_skills.mcp:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 # The lib (scripts/supercmo_skills) installs as `supercmo_skills`; supercmo_env.py installs as a
-# top-level module (supercmo_skills imports it). The media skills ride along as package data
-# under supercmo_skills/_assets.
+# top-level module (supercmo_skills imports it). The MCP server now lives inside the package
+# (supercmo_skills/mcp) and ships automatically via `packages` below. The media skills ride along
+# as package data under supercmo_skills/_assets.
 [tool.hatch.build.targets.wheel]
 packages = ["scripts/supercmo_skills"]
 exclude = ["**/__pycache__", "**/*.pyc"]
@@ -49,4 +55,3 @@ exclude = ["**/__pycache__", "**/*.pyc"]
 # Map whole dirs, not per-skill — a new skills/<x>/ ships with zero edits here (hatchling
 # force-include copies recursively; caches are pruned by `exclude`).
 "skills" = "supercmo_skills/_assets/skills"
-"mcp-server" = "supercmo_skills/_assets/mcp-server"         # media + analysis tools (MCP delivery)

@@ -3,17 +3,11 @@
 All catalog + routing + vendor logic lives in supercmo_skills; this only declares the
 schema and forwards the call.
 """
-import os
-import sys
 from concurrent.futures import ThreadPoolExecutor
 
-# supercmo_skills lives in the plugin's scripts/ dir (repo_root/scripts).
-PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
-
-import registry  # noqa: E402
-import supercmo_skills  # noqa: E402
-from supercmo_skills import catalog, tool_specs  # noqa: E402
+from .. import registry
+import supercmo_skills
+from supercmo_skills import catalog, tool_specs
 
 
 IMAGE_GENERATE = {

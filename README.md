@@ -8,6 +8,8 @@
 
 ### Creative production skills for AI agents
 
+<!-- mcp-name: io.github.SupercmoHQ/supercmo -->
+
 A collection of AI agent skills to research, plan, create, and ship full creative campaigns.
 
 Describe what you want to make - like a UGC video, a product launch campaign, or a week of content. It plans the work, picks the best AI image/video/audio models, edits and delivers the finished, campaign-ready assets.
@@ -89,9 +91,10 @@ These are the discrete capabilities installed into your agent.
 ## Install
 
 Every host loads the **same skills** + the **same local MCP server** - only the wiring differs.
-**Prerequisite:** Python 3 on PATH (the server is standard-library only - no `pip install`). The root
-`pyproject.toml` / `package.json` are packaging scaffolding — you don't `pip install` or `npm install`
-anything to run or contribute to the skills.
+**Prerequisite:** [`uv`](https://docs.astral.sh/uv/getting-started/installation/) on PATH — the MCP
+server runs via `uvx`, which provisions Python and the server for you (nothing to `pip install`). The
+root `pyproject.toml` / `package.json` are packaging scaffolding — you don't build anything by hand to
+run or contribute to the skills.
 
 **npx installer** - registers the MCP server via each host's own mechanism (`codex`/`claude mcp add` where a CLI exists; a `.cursor/mcp.json` for Cursor) and places the skills. One command does every detected host:
 
@@ -171,8 +174,9 @@ These skills run inside your agent. Exactly what happens:
   host's MCP config `env` / your shell); the server reads them from its process environment and requests
   go **directly to the vendor — nothing routes through SuperCMO**. With the **managed** key, requests go
   to SuperCMO's proxy (billed to your credits) — you never hand us a vendor key.
-* **The MCP server is local + minimal.** Standard-library Python (`mcp-server/server.py`), no
-  `pip install`, starts only when your host enables the plugin.
+* **The MCP server is local + minimal.** A stdlib-only Python package (`supercmo-skills` on PyPI, source
+  in `scripts/supercmo_skills/mcp/`), fetched and run on demand via `uvx supercmo-skills@<version>` — it
+  runs on your machine, launched by your host, and starts only when your host enables the plugin.
 * **Dry-run everything.** Generation tools support `dry_run` - a free preview of the exact request
   (keys masked), no API call.
 

@@ -23,10 +23,8 @@ import tempfile
 # needs at runtime, and NOT bin/ or package.json (see the module docstring).
 PLUGIN_ENTRIES = [
     ".claude-plugin",   # plugin.json / marketplace.json / supercmo.json
-    ".mcp.json",        # declares the supercmo MCP server (points at mcp-server/)
-    "mcp-server",       # the MCP server the skills call
-    "skills",           # the skills
-    "scripts",          # the engine the MCP server imports (supercmo_skills, etc.)
+    ".mcp.json",        # declares the supercmo MCP server (uvx supercmo-skills@<version> from PyPI)
+    "skills",           # the skills (markdown the agent loads; tools come from the uvx server)
     "LICENSE",          # Apache-2.0 (redistribution)
     "NOTICE",           # Apache-2.0 NOTICE (redistribution)
 ]

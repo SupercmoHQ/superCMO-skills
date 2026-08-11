@@ -1,0 +1,27 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.SupercmoHQ/supercmo",
+  "description": "Marketing media generation — image, video, voice — for AI agents. BYO keys.",
+  "title": "SuperCMO",
+  "websiteUrl": "https://getsupercmo.ai",
+  "version": "0.1.7",
+  "repository": {
+    "url": "https://github.com/SupercmoHQ/superCMO-skills",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "supercmo-skills",
+      "version": "0.1.7",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        { "name": "FAL_KEY", "description": "fal.ai key — image + video", "isSecret": true },
+        { "name": "ELEVENLABS_API_KEY", "description": "ElevenLabs key — voiceover", "isSecret": true },
+        { "name": "GEMINI_API_KEY", "description": "Gemini key — image/video analysis", "isSecret": true },
+        { "name": "FIRECRAWL_API_KEY", "description": "Firecrawl key — URL extraction", "isSecret": true }
+      ]
+    }
+  ]
+}

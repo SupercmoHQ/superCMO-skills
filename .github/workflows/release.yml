@@ -1,12 +1,19 @@
 name: Release
 
 # Tag a release — the tag must match the version in .claude-plugin/plugin.json:
-#   git tag v0.1.6 && git push origin v0.1.6
-# Builds the plugin bundle (supercmo-plugin.zip) and creates a GitHub Release with
-# notes auto-generated from the commits since the previous tag.
+#   git tag v0.1.7 && git push origin v0.1.7
 #
-# The plugin is the launch product. The Python core (pyproject.toml) is deferred and is
-# NOT published here — re-add a PyPI job (OIDC Trusted Publishing) when the core ships.
+# Jobs:
+#   release       — always: build the plugin bundle + GitHub Release (no external publish).
+#   pypi-publish  — publishes supercmo-skills to PyPI via OIDC Trusted Publishing (the uvx package
+#                   + the MCP-registry backing package). GATED by the `pypi` environment.
+#   npm-publish   — publishes @supercmo/skills to npm via OIDC Trusted Publishing. GATED by `npm`.
+#   mcp-registry  — registers server.json in the official MCP registry (needs the PyPI package live).
+#                   GATED by `mcp-registry`.
+#
+# THE GATE: the three publish jobs use protected GitHub Environments. Configure each environment with
+# required reviewers (the Final Launch Check approver) so a tag push PAUSES for approval instead of
+# publishing. A tag alone never publishes.
 
 on:
   push:
@@ -24,25 +31,98 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Assert tag matches plugin version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Assert tag matches every manifest version + the uvx pin
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          ver=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
-          echo "tag=$tag plugin.json=$ver"
-          test "$tag" = "$ver"
+          plugin=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          pkg=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
+          pyproj=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          srvjson=$(python3 -c "import json; print(json.load(open('server.json'))['version'])")
+          mcpb=$(python3 -c "import json; print(json.load(open('mcpb/manifest.json'))['version'])")
+          gem=$(python3 -c "import json; print(json.load(open('gemini-extension.json'))['version'])")
+          # server.json's PACKAGE version (what mcp-publisher registers as the PyPI ref) + the server's own reported version.
+          srvpkg=$(python3 -c "import json; print(json.load(open('server.json'))['packages'][0]['version'])")
+          srvpy=$(python3 -c 'import re; print(re.search(r"""SERVER_VERSION\s*=\s*["\x27]([^"\x27]+)""", open("scripts/supercmo_skills/mcp/server.py").read()).group(1))')
+          # Every host config + extension manifest pins the server: args must be ["supercmo-skills@<tag>"].
+          mcp=$(python3 -c "import json; print(json.load(open('.mcp.json'))['mcpServers']['supercmo']['args'][0])")
+          codex=$(python3 -c "import json; print(json.load(open('.codex-plugin/mcp.json'))['mcpServers']['supercmo']['args'][0])")
+          mcpbpin=$(python3 -c "import json; print(json.load(open('mcpb/manifest.json'))['server']['mcp_config']['args'][0])")
+          gempin=$(python3 -c "import json; print(json.load(open('gemini-extension.json'))['mcpServers']['supercmo']['args'][0])")
+          echo "tag=$tag plugin=$plugin package=$pkg pyproject=$pyproj server.json=$srvjson srvpkg=$srvpkg srvpy=$srvpy mcpb=$mcpb gemini=$gem mcp=$mcp codex=$codex mcpbpin=$mcpbpin gempin=$gempin"
+          test "$tag" = "$plugin" && test "$tag" = "$pkg" && test "$tag" = "$pyproj" && test "$tag" = "$srvjson"
+          test "$tag" = "$srvpkg" && test "$tag" = "$srvpy"
+          test "$tag" = "$mcpb" && test "$tag" = "$gem"
+          test "$mcp" = "supercmo-skills@$tag" && test "$codex" = "supercmo-skills@$tag"
+          test "$mcpbpin" = "supercmo-skills@$tag" && test "$gempin" = "supercmo-skills@$tag"
       - name: Build plugin bundle
         run: |
           python3 -m pip install --quiet pyyaml
           python3 scripts/package_plugins.py
+      - name: Build .mcpb bundle (Smithery / Claude Desktop)
+        run: npx --yes @anthropic-ai/mcpb@latest pack mcpb dist/supercmo.mcpb
       - name: Publish GitHub Release (idempotent)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           # A pre-launch re-seed force-pushes the same tag, re-triggering this job. Create the release
-          # the first time; on a re-run the release already exists, so just refresh the .zip asset
+          # the first time; on a re-run the release already exists, so just refresh the assets
           # instead of failing on "a release with the same tag name already exists".
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/supercmo-plugin.zip --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/supercmo-plugin.zip dist/supercmo.mcpb --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/supercmo-plugin.zip --generate-notes
+            gh release create "$GITHUB_REF_NAME" dist/supercmo-plugin.zip dist/supercmo.mcpb --generate-notes
           fi
+
+  pypi-publish:
+    needs: release
+    runs-on: ubuntu-latest
+    environment: pypi   # protect with required reviewers = the Final Launch Check gate
+    permissions:
+      id-token: write   # OIDC Trusted Publishing — no token stored
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build wheel + sdist
+        run: |
+          python3 -m pip install --quiet build
+          python3 -m build
+      - name: Publish to PyPI (OIDC)
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  npm-publish:
+    needs: release
+    runs-on: ubuntu-latest
+    environment: npm   # protect with required reviewers = the Final Launch Check gate
+    permissions:
+      contents: read
+      id-token: write   # OIDC Trusted Publishing — provenance auto-attached, no token
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+      - run: npm install -g npm@latest   # OIDC needs npm >= 11.5.1
+      - run: python3 -m pip install --quiet pyyaml   # prepublishOnly runs scripts/quick_validate.py
+      - run: npm publish --access public
+
+  mcp-registry:
+    needs: pypi-publish   # the registry entry points at the PyPI package — it must be live first
+    runs-on: ubuntu-latest
+    environment: mcp-registry
+    permissions:
+      id-token: write   # `mcp-publisher login github-oidc`
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+      - name: Publish server.json to the MCP registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

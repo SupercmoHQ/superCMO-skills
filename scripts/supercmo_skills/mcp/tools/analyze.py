@@ -3,14 +3,9 @@
 Reads an image (local path or URL) and answers a question about it (Gemini vision under the hood).
 All routing/vendor logic lives in supercmo_skills; this only declares the schema and forwards.
 """
-import os
-import sys
 
-PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
-
-import registry  # noqa: E402
-import supercmo_skills  # noqa: E402
+from .. import registry
+import supercmo_skills
 
 
 IMAGE_ANALYSIS = {
