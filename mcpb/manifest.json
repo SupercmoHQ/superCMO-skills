@@ -18,6 +18,7 @@
       "command": "uvx",
       "args": ["supercmo-skills@0.1.9"],
       "env": {
+        "WAVESPEED_API_KEY": "${user_config.wavespeed_api_key}",
         "FAL_KEY": "${user_config.fal_key}",
         "ELEVENLABS_API_KEY": "${user_config.elevenlabs_api_key}",
         "GEMINI_API_KEY": "${user_config.gemini_api_key}",
@@ -26,6 +27,13 @@
     }
   },
   "user_config": {
+    "wavespeed_api_key": {
+      "type": "string",
+      "title": "WAVESPEED_API_KEY",
+      "description": "WaveSpeed key — image + video (recommended)",
+      "sensitive": true,
+      "required": false
+    },
     "fal_key": {
       "type": "string",
       "title": "FAL_KEY",

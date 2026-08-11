@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """Guard: the provider-key catalog has ONE source of truth — each provider module's BYOK_ENV
-(scripts/supercmo_skills/providers/*.py, enumerated by client.provider_modules()). Keys are now
-delivered ONLY via ~/.supercmo/.env (no host env block on any host — see supercmo_env.py), so the
-single non-Python copy of the key list that must stay in lockstep is the .env template the installer
-writes; a stale template means a new provider's key gets no placeholder and users don't know to add it:
+(scripts/supercmo_skills/providers/*.py, enumerated by client.provider_modules()). Every non-Python
+copy of the key list must stay in lockstep, or a new provider's key silently goes missing from a
+distribution channel (exactly how WAVESPEED_API_KEY was absent from server.json + mcpb):
 
-  - bin/lib/config.js  ensureKeyFile() — the labeled `~/.supercmo/.env` placeholders a user fills in
+  - bin/lib/config.js   ensureKeyFile()          — the `~/.supercmo/.env` placeholders a user fills in
+  - server.json         environmentVariables     — the MCP-registry listing metadata
+  - mcpb/manifest.json  server.mcp_config.env    — the Claude Desktop / Smithery bundle bindings
 
-SUPERCMO_API_KEY (managed lane) is not a BYOK provider and is intentionally absent from the template,
+SUPERCMO_API_KEY (managed lane) is not a BYOK provider and is intentionally absent from all three,
 so it's excluded. Run in CI (validate.yml). Blocking.
 """
+import json
 import os
 import re
 import sys
@@ -37,15 +39,36 @@ def env_template_keys():
     return keys
 
 
+def server_json_keys():
+    """Provider keys advertised in server.json (the MCP-registry listing metadata)."""
+    with open(os.path.join(ROOT, "server.json"), encoding="utf-8") as f:
+        data = json.load(f)
+    return {e["name"] for e in data["packages"][0]["environmentVariables"]}
+
+
+def mcpb_keys():
+    """Provider keys the .mcpb bundle binds (Claude Desktop / Smithery UI)."""
+    with open(os.path.join(ROOT, "mcpb", "manifest.json"), encoding="utf-8") as f:
+        data = json.load(f)
+    return set(data["server"]["mcp_config"]["env"].keys())
+
+
 def main():
     reg = registry_keys()
-    got = env_template_keys()
-    if got != reg:
-        print("✗ provider-key catalog drift — the ~/.supercmo/.env template is stale vs the provider registry:")
-        print(f"  - bin/lib/config.js ensureKeyFile(): {sorted(got)} != registry {sorted(reg)} "
-              f"(missing {sorted(reg - got)}, extra {sorted(got - reg)})")
+    # Each surface that carries a copy of the BYOK key list, and its extractor.
+    surfaces = [
+        ("bin/lib/config.js ensureKeyFile()", env_template_keys),
+        ("server.json environmentVariables", server_json_keys),
+        ("mcpb/manifest.json server.mcp_config.env", mcpb_keys),
+    ]
+    drift = [(name, got) for name, fn in surfaces for got in (fn(),) if got != reg]
+    if drift:
+        print("✗ provider-key catalog drift vs the provider registry:")
+        for name, got in drift:
+            print(f"  - {name}: {sorted(got)} != registry {sorted(reg)} "
+                  f"(missing {sorted(reg - got)}, extra {sorted(got - reg)})")
         return 1
-    print(f"✓ provider-key catalog in sync ({len(reg)} keys): registry == ~/.supercmo/.env template")
+    print(f"✓ provider-key catalog in sync ({len(reg)} keys): registry == .env template + server.json + mcpb")
     return 0
 
 
