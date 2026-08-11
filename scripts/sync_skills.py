@@ -66,19 +66,40 @@ def render(rows):
     return head + "\n" + body
 
 
+def table_content(block):
+    """The SKILLS table reduced to content — one 'cell|cell' string per data row, pipe padding
+    stripped and the separator row dropped. So a markdown formatter re-spacing the table (`|---|`
+    -> `| --- |`, the recurring CI break) is NOT treated as drift, while a real change (skill
+    added / removed / renamed / re-described) still is."""
+    out = []
+    for ln in block.splitlines():
+        ln = ln.strip()
+        if not ln.startswith("|"):
+            continue                        # skip marker comments / blank lines
+        if set(ln) <= set("|-: "):
+            continue                        # separator row — formatters vary its dashes + spacing
+        out.append("|".join(c.strip() for c in ln.strip("|").split("|")))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="fail if README is out of date (CI)")
     args = ap.parse_args()
 
     content = open(README, encoding="utf-8").read()
-    if not MARKERS.search(content):
+    match = MARKERS.search(content)
+    if not match:
         sys.exit("no <!-- SKILLS:START/END --> markers in README.md")
 
     rows = catalog_skills()
-    new = MARKERS.sub(lambda m: m.group(1) + render(rows) + m.group(2), content)
+    rendered = render(rows)
+    new = MARKERS.sub(lambda m: m.group(1) + rendered + m.group(2), content)
 
-    if new == content:
+    # Compare CONTENT, not bytes. An editor's markdown auto-formatter re-pads the table and
+    # respaces the separator — that is NOT drift and must never fail CI. Only a real change to the
+    # skills (added / removed / renamed / re-described) counts as out of date.
+    if table_content(match.group(0)) == table_content(rendered):
         print(f"README skills table already in sync ({len(rows)} skills)")
         return
     if args.check:

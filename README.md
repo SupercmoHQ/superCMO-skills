@@ -123,9 +123,13 @@ codex plugin add supercmo@superCMO-skills
 [latest release](https://github.com/SupercmoHQ/superCMO-skills/releases), then
 **Settings → Plugins → Upload local plugin**.
 
-**Standalone** - the media skills call the bundled **MCP server**, so install the whole repo (or the
-plugin). Copying a single `skills/<name>/` folder gives you the instructions but **not** the
-generation tools.
+**Found us on [skills.sh](https://skills.sh)?** `npx skills add SupercmoHQ/superCMO-skills` copies the
+skills but **not the MCP server** they call — so `image_generate`/`video_generate` won't exist yet.
+Install the server, then reload your agent:
+
+```bash
+npx --yes github:SupercmoHQ/superCMO-skills --all   # or --cursor --project-dir . · --codex · --all
+```
 
 ## Set up a key
 
