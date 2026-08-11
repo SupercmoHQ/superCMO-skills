@@ -56,6 +56,8 @@ def _load_key_file(path=KEY_FILE):
             continue
         k, v = line.split("=", 1)
         k, v = k.strip(), v.strip()
+        if k.startswith("export") and k[6:7].isspace():   # tolerate `export FOO=bar` dotenv lines
+            k = k[6:].strip()
         if v[:1] not in ("'", '"') and " #" in v:   # strip an inline comment on an unquoted value
             v = v.split(" #", 1)[0].strip()
         v = v.strip("'").strip('"')
@@ -452,14 +454,15 @@ def _selftest():
         p = os.path.join(scratch, ".env")
         with open(p, "wb") as f:  # non-UTF-8 comment byte + a valid ASCII key line + parsing edges
             f.write(b"# cl\xe9 (non-utf8 comment)\nFAL_KEY=fromfile\nGEMINI_API_KEY=g  # inline\n"
-                    b"ELEVENLABS_API_KEY=\"quoted\"\nEMPTY=\n")
-        for k in ("FAL_KEY", "GEMINI_API_KEY", "ELEVENLABS_API_KEY", "EMPTY"):
+                    b"ELEVENLABS_API_KEY=\"quoted\"\nexport FIRECRAWL_API_KEY=exported\nEMPTY=\n")
+        for k in ("FAL_KEY", "GEMINI_API_KEY", "ELEVENLABS_API_KEY", "FIRECRAWL_API_KEY", "EMPTY"):
             os.environ.pop(k, None)
         os.environ["FAL_KEY"] = "realenv"             # a real env value must win over the file
         _load_key_file(p)
         assert os.environ["FAL_KEY"] == "realenv", "real env value must win"
         assert os.environ["GEMINI_API_KEY"] == "g", "inline comment stripped on unquoted value"
         assert os.environ["ELEVENLABS_API_KEY"] == "quoted", "surrounding quotes stripped"
+        assert os.environ["FIRECRAWL_API_KEY"] == "exported", "`export ` prefix stripped from the key"
         assert "EMPTY" not in os.environ, "empty value must not be set"
         os.environ["FAL_KEY"] = ""                     # empty (unset ${VAR:-}) must be filled
         _load_key_file(p)
