@@ -4,7 +4,7 @@
   "description": "Marketing media generation — image, video, voice — for AI agents. BYO keys.",
   "title": "SuperCMO",
   "websiteUrl": "https://getsupercmo.ai",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "repository": {
     "url": "https://github.com/SupercmoHQ/superCMO-skills",
     "source": "github"
@@ -14,7 +14,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "supercmo-skills",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         { "name": "FAL_KEY", "description": "fal.ai key — image + video", "isSecret": true },
