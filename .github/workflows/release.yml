@@ -1,7 +1,8 @@
 name: Release
 
-# Tag a release — the tag must match the version in .claude-plugin/plugin.json:
-#   git tag v0.1.8 && git push origin v0.1.8
+# Tag a release — the tag must match package.json "version". scripts/bump_version.py keeps every
+# manifest + uvx pin in sync from that one value; the assert below re-checks it before publishing.
+#   python3 scripts/bump_version.py X.Y.Z   then   git tag vX.Y.Z && git push origin vX.Y.Z
 #
 # Jobs:
 #   release       — always: build the plugin bundle + GitHub Release (no external publish).
@@ -34,29 +35,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Assert tag matches every manifest version + the uvx pin
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          plugin=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
-          pkg=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
-          pyproj=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          srvjson=$(python3 -c "import json; print(json.load(open('server.json'))['version'])")
-          mcpb=$(python3 -c "import json; print(json.load(open('mcpb/manifest.json'))['version'])")
-          gem=$(python3 -c "import json; print(json.load(open('gemini-extension.json'))['version'])")
-          # server.json's PACKAGE version (what mcp-publisher registers as the PyPI ref) + the server's own reported version.
-          srvpkg=$(python3 -c "import json; print(json.load(open('server.json'))['packages'][0]['version'])")
-          srvpy=$(python3 -c 'import re; print(re.search(r"""SERVER_VERSION\s*=\s*["\x27]([^"\x27]+)""", open("scripts/supercmo_skills/mcp/server.py").read()).group(1))')
-          # Every host config + extension manifest pins the server: args must be ["supercmo-skills@<tag>"].
-          mcp=$(python3 -c "import json; print(json.load(open('.mcp.json'))['mcpServers']['supercmo']['args'][0])")
-          codex=$(python3 -c "import json; print(json.load(open('.codex-plugin/mcp.json'))['mcpServers']['supercmo']['args'][0])")
-          mcpbpin=$(python3 -c "import json; print(json.load(open('mcpb/manifest.json'))['server']['mcp_config']['args'][0])")
-          gempin=$(python3 -c "import json; print(json.load(open('gemini-extension.json'))['mcpServers']['supercmo']['args'][0])")
-          echo "tag=$tag plugin=$plugin package=$pkg pyproject=$pyproj server.json=$srvjson srvpkg=$srvpkg srvpy=$srvpy mcpb=$mcpb gemini=$gem mcp=$mcp codex=$codex mcpbpin=$mcpbpin gempin=$gempin"
-          test "$tag" = "$plugin" && test "$tag" = "$pkg" && test "$tag" = "$pyproj" && test "$tag" = "$srvjson"
-          test "$tag" = "$srvpkg" && test "$tag" = "$srvpy"
-          test "$tag" = "$mcpb" && test "$tag" = "$gem"
-          test "$mcp" = "supercmo-skills@$tag" && test "$codex" = "supercmo-skills@$tag"
-          test "$mcpbpin" = "supercmo-skills@$tag" && test "$gempin" = "supercmo-skills@$tag"
+      - name: Assert tag matches package.json + every manifest version + uvx pin
+        run: python3 scripts/bump_version.py --check --tag "$GITHUB_REF_NAME"
       - name: Build plugin bundle
         run: |
           python3 -m pip install --quiet pyyaml
