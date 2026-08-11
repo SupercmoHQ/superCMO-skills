@@ -10,6 +10,7 @@ list leads with wavespeed and falls back to fal for image/video), else the manag
 is model-aware, provider-blind.
 """
 import base64
+import http.client
 import os
 import time
 import uuid
@@ -305,12 +306,21 @@ def _media_bytes(item):
         except Exception:
             return None, None
     if url.startswith(("http://", "https://")):
+        # SSRF-guarded fetch (validated + pinned IP, per-hop redirect re-validation, size cap) — the
+        # same seam agent-supplied URLs use, so a vendor result URL can't be steered at an internal IP.
         # Tight budget: persistence is best-effort, so a slow/flaky CDN must NOT block the
         # (already-long) generation past the caller's tool-call timeout. On failure we return
         # (None, None) and the item keeps its playable url — the tool still returns promptly.
         t0 = time.time()
-        data, ctype, _status, _err = supercmo_env._request_raw(
-            "GET", url, timeout=_MEDIA_DL_TIMEOUT, retries=_MEDIA_DL_RETRIES)
+        data = ctype = None
+        for attempt in range(_MEDIA_DL_RETRIES):
+            try:
+                data, ctype = supercmo_env.safe_fetch_bytes(url, timeout=_MEDIA_DL_TIMEOUT)
+                break
+            # ValueError = policy (blocked IP / bad status / oversize); OSError = timeout / conn reset
+            # / TLS; HTTPException = truncated response — the transient CDN failures the retry is for.
+            except (ValueError, OSError, http.client.HTTPException) as e:
+                supercmo_env.dbg(f"media download attempt {attempt + 1}/{_MEDIA_DL_RETRIES} failed: {e}")
         supercmo_env.dbg(f"media download {'ok' if data else 'FAILED'} "
                          f"({len(data) if data else 0}B, {time.time() - t0:.1f}s) {url[:80]}")
         if data is not None:
