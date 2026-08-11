@@ -6,30 +6,34 @@
 
 </div>
 
-### Creative production skills for AI agents
+### Enable AI agents to create marketing videos and images
 
 <!-- mcp-name: io.github.SupercmoHQ/supercmo -->
+Open-source skills that empower any AI agent (Claude, Cursor, Codex, Hermes, etc.) to generate end-to-end marketing campaigns - UGC videos, ad videos, product photography and more.
 
-A collection of AI agent skills to research, plan, create, and ship full creative campaigns.
-
-Describe what you want to make - like a UGC video, a product launch campaign, or a week of content. It plans the work, picks the best AI image/video/audio models, edits and delivers the finished, campaign-ready assets.
+Just provide a product photo and a brief. The agent extracts the product details, selects the optimal AI image and video models, casts AI actors, and edits the generated content into finished, campaign-ready assets. It can produce videos of any length while maintaining perfect actor and product consistency.
 
 *The open-source alternative to closed AI marketing agents.*
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/SupercmoHQ/superCMO-skills/validate.yml?branch=main&label=CI)](https://github.com/SupercmoHQ/superCMO-skills/actions)
 
-### Why SuperCMO Skills?
+---
 
-| | |
-| --- | --- |
-| **You direct, it produces** | SuperCMO doesn't decide what your campaign should say — you do. It handles the production work underneath: scripting to your brief, casting, shooting, editing. It checks in at every step, so you can redirect it mid-run instead of accepting whatever comes out the end. |
-| **No tool hopping** | Making one video ad today means jumping between tools: script in one, images in another, voice in a third, video in a fourth, then stitching it in an editor. SuperCMO does it all from a single brief, in one place. |
-| **The right model, picked for you** | Every AI image/video model works differently and needs different prompting. Knowing that Veo wants one kind of prompt and Kling another — and which to reach for in the first place — is most of the work. SuperCMO's skills already know. You write the brief; it handles the rest. |
-| **Consistency across every shot** | One good clip is easy. Ten clips where the product and the face stay identical is the part that breaks. SuperCMO storyboards before it renders and locks a reference into every generation, so continuity holds across the whole cut. |
-| **Editing included** | It doesn't just hand back a raw 10-second clip. It generates the media, splits long clips, trims footage, adds voiceover, and stitches everything into a finished asset. |
-| **Pay per use, no subscription** | Most marketing tools charge monthly whether you use them or not. SuperCMO doesn't — bring your own vendor keys (free), or generate on SuperCMO's keys and pay per use. No lock-in. |
-| **Runs where you already work** | Inside Claude Code, Cursor, OpenAI Codex, Hermes, Openclaw, or any agent that supports the Agent Skills spec. Your keys and files stay on your machine. |
+## Contents
+
+- [Quick start](#quick-start)
+- [Start from a product photo](#start-from-a-product-photo)
+- [Why SuperCMO Skills?](#why-supercmo-skills)
+- [How the skills work together](#how-the-skills-work-together)
+- [The Marketing Production Pipeline](#the-marketing-production-pipeline)
+- [Install](#install)
+- [Set up a key](#set-up-a-key)
+- [Security & trust](#security--trust)
+- [Telemetry](#telemetry)
+- [Community](#community)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
@@ -48,6 +52,46 @@ npx --yes github:SupercmoHQ/superCMO-skills --all   # every detected host
 ```
 
 Prefer a preview before spending? Every generation supports `dry_run` — the exact request and cost, no API call.
+
+---
+
+## Start from a product photo
+
+Starting from your product is faster than describing a video from a blank prompt.
+
+Hand SuperCMO a **single product photo** and it builds a UGC ad around it - a creator on camera reviewing, unboxing, trying on, or demoing your product:
+
+1. Upload a product photo and give a short brief
+2. It analyzes the product, picks the format, casts the creator, and writes the script. Then shows you the concept and waits for your approval before spending a cent
+3. Once approved, it generates the storyboards, renders each clip, stitches them together, and hands back the finished video
+
+```text
+"Make a 30-second unboxing UGC ad for this product." [attach product photo]
+```
+
+What you get back is not a random clip. You get:
+
+- **You stay in charge** - approve the creator, the concept, and the script before anything renders, and change any part along the way.
+- **Consistency built in** - maintains the same actor and product across every clip, through the storyboard and anchor references
+- **A finished, scroll-stopping video** - delivered at the length you asked for, ready to post
+
+Works inside **Claude Code, Cursor, Codex, Hermes** - any agent that supports the Agent Skills spec.
+
+---
+
+### Why SuperCMO Skills?
+
+| | |
+| --- | --- |
+| **You direct, it produces** | SuperCMO doesn't decide what your campaign should say — you do. It handles the production work underneath: scripting to your brief, casting, shooting, editing. It checks in at every step, so you can redirect it mid-run instead of accepting whatever comes out the end. |
+| **No tool hopping** | Making one video ad today means jumping between tools: script in one, images in another, voice in a third, video in a fourth, then stitching it in an editor. SuperCMO does it all from a single brief, in one place. |
+| **The right model, picked for you** | Every AI image/video model works differently and needs different prompting. Knowing that Veo wants one kind of prompt and Kling another — and which to reach for in the first place — is most of the work. SuperCMO's skills already know. You write the brief; it handles the rest. |
+| **Consistency across every shot** | One good clip is easy. Ten clips where the product and the face stay identical is the part that breaks. SuperCMO storyboards before it renders and locks a reference into every generation, so continuity holds across the whole cut. |
+| **Editing included** | It doesn't just hand back a raw 10-second clip. It generates the media, splits long clips, trims footage, adds voiceover, and stitches everything into a finished asset. |
+| **Pay per use, no subscription** | Most marketing tools charge monthly whether you use them or not. SuperCMO doesn't — bring your own vendor keys (free), or generate on SuperCMO's keys and pay per use. No lock-in. |
+| **Runs where you already work** | Inside Claude Code, Cursor, OpenAI Codex, Hermes, Openclaw, or any agent that supports the Agent Skills spec. Your keys and files stay on your machine. |
+
+---
 
 ## How the skills work together
 
@@ -77,9 +121,17 @@ Here is an example of how the skills chain together behind the scenes to execute
 
 ```
 
-## Skills
+## The Marketing Production Pipeline
 
-These are the discrete capabilities installed into your agent.
+SuperCMO installs a full creative agency into your text-based agent. It doesn't just generate media; it orchestrates the specific steps required to make high-converting ads:
+
+* **Product Analysis** - Scrapes your URLs to extract brand guidelines, materials, and features so the AI models don't hallucinate your product.
+* **Ad Copy & Scripting** - Breaks the brief into a shot-by-shot ad script tailored for platforms like Meta, TikTok, or YouTube.
+* **Visual Generation** - Produces master reference images and locks them as anchors so your product looks consistent in every video frame.
+* **Audio & Voiceover** - Generates natural, high-energy voiceovers paced perfectly to your video duration.
+* **Post-Production** - Trims footage, syncs audio, and stitches the final MP4.
+
+These are the discrete skills installed into your agent to run that pipeline:
 
 <!-- SKILLS:START — auto-generated by scripts/sync_skills.py; do not edit by hand -->
 | Skill | Description |
