@@ -33,12 +33,7 @@ def job_status(args):
     else:                                # rejoin a batch concurrently
         with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as ex:
             results = list(ex.map(supercmo_skills.job_status, jobs))
-    pending = sum(1 for r in results if supercmo_skills.is_pending(r))
-    out = {"ok": all(supercmo_skills.job_ok(x) for x in results), "count": len(results), "results": results}
-    if pending:
-        out["pending"] = pending
-        out["hint"] = "still generating — call job_status again with each pending handle after a short wait (do not re-submit)."
-    return out
+    return supercmo_skills.batch_envelope(results, "job")
 
 
 registry.register(JOB_STATUS, job_status)

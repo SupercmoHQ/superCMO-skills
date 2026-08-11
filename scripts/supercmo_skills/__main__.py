@@ -9,7 +9,9 @@ import supercmo_skills as core
 
 
 def _route_of(**env):
-    for k in ("FAL_KEY", "SUPERCMO_API_KEY"):
+    # Every credential the resolver looks at, so a real ~/.supercmo/.env on the machine running
+    # this check can't decide the route instead of the case under test.
+    for k in ("WAVESPEED_API_KEY", "FAL_KEY", "SUPERCMO_API_KEY", "SUPERCMO_MEDIA_PROVIDER"):
         os.environ.pop(k, None)
     os.environ.update(env)
     r = core.image_generate("a red bicycle", model="nano-banana-2", dry_run=True)
@@ -21,14 +23,16 @@ def main():
     supercmo_env.reload_keys = lambda: None
     try:
         assert _route_of(FAL_KEY="x") == "fal", "BYO fal route should win"
+        assert _route_of(WAVESPEED_API_KEY="x") == "wavespeed", "BYO wavespeed route should win"
+        assert _route_of(WAVESPEED_API_KEY="x", FAL_KEY="y") == "wavespeed", "catalog order first"
         assert _route_of(SUPERCMO_API_KEY="x") == "proxy", "managed proxy when no BYO route available"
         assert _route_of(FAL_KEY="x", SUPERCMO_API_KEY="y") == "fal", "BYO-direct > managed"
         assert _route_of() == "no_provider_configured", "neither set -> actionable error"
         bad = core.image_generate("x", model="does-not-exist", dry_run=True)
         assert bad.get("error", "").startswith("unknown image model"), bad
         for key in (
-            "FAL_KEY", "GEMINI_API_KEY", "ELEVENLABS_API_KEY", "FIRECRAWL_API_KEY",
-            "SUPERCMO_API_KEY",
+            "WAVESPEED_API_KEY", "FAL_KEY", "GEMINI_API_KEY", "ELEVENLABS_API_KEY",
+            "FIRECRAWL_API_KEY", "SUPERCMO_API_KEY",
         ):
             os.environ.pop(key, None)
         os.environ["SUPERCMO_API_KEY"] = "managed"

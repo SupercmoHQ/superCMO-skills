@@ -14,10 +14,10 @@ import supercmo_env  # noqa: E402,F401
 
 from . import catalog  # noqa: E402
 from .client import (  # noqa: E402
-    audio_generate, image_analysis, image_generate, is_pending, job_ok, job_status,
-    list_voices, url_extraction, video_analysis, video_generate)
+    audio_generate, batch_envelope, image_analysis, image_generate, is_pending, job_ok, job_status,
+    list_voices, max_parallel, url_extraction, video_analysis, video_generate)
 from .stitch import video_stitch  # noqa: E402
 
 __all__ = ["image_generate", "video_generate", "audio_generate", "list_voices", "url_extraction",
            "image_analysis", "video_analysis", "video_stitch", "job_status",
-           "job_ok", "is_pending", "catalog"]
+           "job_ok", "is_pending", "batch_envelope", "max_parallel", "catalog"]

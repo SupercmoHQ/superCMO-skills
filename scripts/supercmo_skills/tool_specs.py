@@ -25,6 +25,10 @@ IMAGE_GENERATE_DESCRIPTION = (
     "`{status:\"pending\", ...}` (a job handle, not an error) — pass that exact handle to `job_status` "
     "to retrieve it, and never re-submit a pending image. Set dry_run=true "
     "to preview the exact requests and cost without generating (no credits spent)."
+    "Each entry in `results` is one of three things: finished media; a "
+    "`{status:\"pending\", ...}` job handle to rejoin with job_status; or a failure carrying "
+    "`ok: false` and an `error`. A failed entry is terminal — report its `error` and never "
+    "poll or re-submit it. Read every entry rather than the top-level counters alone."
 )
 
 IMAGE_GENERATE_PROPERTIES = {
@@ -51,13 +55,15 @@ IMAGE_GENERATE_PROPERTIES = {
                     "type": "string",
                     "enum": catalog.IMAGE_ASPECTS,
                     "default": catalog.IMAGE_DEFAULT_ASPECT,
-                    "description": "Aspect ratio of the output image.",
+                    "description": "Aspect ratio of the output image. Support differs per model — "
+                    f"every model accepts {', '.join(catalog.IMAGE_ASPECTS_COMMON)}; the wider ratios "
+                    "are model-specific. Call list_image_models for the set a given model accepts.",
                 },
                 "resolution": {
                     "type": "string",
                     "enum": catalog.IMAGE_RESOLUTIONS,
                     "default": catalog.IMAGE_DEFAULT_RESOLUTION,
-                    "description": "Output resolution tier. Applied by models that support it; ignored by models that don't.",
+                    "description": "Output resolution tier. Models differ in which tiers they render at — asking for one a model cannot render is an error naming the tiers it accepts, never a silent downgrade. call list_image_models for a model's tiers.",
                 },
                 "reference_images": {
                     "type": "array",
@@ -84,10 +90,12 @@ IMAGE_GENERATE_REQUIRED = ["requests"]
 
 # ---------------------------------------------------------------------------- list_image_models
 LIST_IMAGE_MODELS_DESCRIPTION = (
-    "List the available image-generation models (with strengths and price), plus the valid "
-    "aspect ratios and resolution tiers that image_generate accepts. Use when you need to "
+    "List the available image-generation models (with strengths, price, the aspect ratios each "
+    "accepts and how many reference images it takes), plus the valid aspect ratios and resolution "
+    "tiers that image_generate accepts. Use when you need to "
     "choose a model and don't already have one in mind (e.g. an open-ended request), or to "
-    "check the valid aspect_ratio / resolution values — most of the time the model is the "
+    "check the valid aspect_ratio / resolution values, or how many reference images a model will "
+    "take, before calling image_generate — most of the time the model is the "
     "default or already specified. Pass an optional 'query' to filter models by use-case "
     "keyword (e.g. 'text', 'photorealistic', 'fast')."
 )
@@ -117,6 +125,10 @@ VIDEO_GENERATE_DESCRIPTION = (
     "returns `{status:\"pending\", ...}` (a job handle, NOT an error) — pass that exact handle to "
     "`job_status` to retrieve it, and never re-submit a pending clip. Set dry_run=true to preview the "
     "exact requests without generating (no credits spent)."
+    "Each entry in `results` is one of three things: finished media; a "
+    "`{status:\"pending\", ...}` job handle to rejoin with job_status; or a failure carrying "
+    "`ok: false` and an `error`. A failed entry is terminal — report its `error` and never "
+    "poll or re-submit it. Read every entry rather than the top-level counters alone."
 )
 
 _VIDEO_REF_ITEMS = {"type": "array", "items": {"type": "string"}}
@@ -224,6 +236,10 @@ AUDIO_GENERATE_DESCRIPTION = (
     "voice. Models differ in expressiveness, language coverage, speed, price, and per-request "
     "character limit — call list_audio_models to compare them. Set dry_run=true to preview the exact "
     "requests without generating (no credits spent)."
+    "Each entry in `results` is one of three things: finished media; a "
+    "`{status:\"pending\", ...}` job handle to rejoin with job_status; or a failure carrying "
+    "`ok: false` and an `error`. A failed entry is terminal — report its `error` and never "
+    "poll or re-submit it. Read every entry rather than the top-level counters alone."
 )
 
 AUDIO_GENERATE_PROPERTIES = {
@@ -393,9 +409,12 @@ JOB_STATUS_DESCRIPTION = (
     "Retrieve a long-running generation that was submitted earlier but hasn't finished — any result "
     "from a generation tool that came back as `{status:\"pending\", ...}` (a job handle, not media). "
     "Pass the exact pending handle object(s) in `jobs`; NEVER re-submit a pending job with the tool "
-    "that created it — that starts (and bills) a new one. Each job comes back either finished (a "
-    "hosted URL plus a local file `path`) or still `{status:\"pending\", ...}` if it isn't done yet, "
-    "in which case call job_status again with the same handle after a short wait. This works for any "
+    "that created it — that starts (and bills) a new one. Each job comes back one of three ways: "
+    "**finished** (a hosted URL plus a local file `path`); still **pending** (`{status:\"pending\", "
+    "...}`), in which case call job_status again with the same handle after a short wait; or "
+    "**failed**, carrying `ok: false` and an `error`. A failed job is terminal — it will never "
+    "finish, so report the error and never poll or re-submit that handle. A batch can mix all three, "
+    "so read every entry in `results` rather than the top-level counters alone. This works for any "
     "kind of pending generation and only rejoins an existing job — it neither starts nor bills a new one."
 )
 

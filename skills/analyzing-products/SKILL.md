@@ -5,7 +5,7 @@ license: Apache-2.0
 metadata:
   version: "0.1.0"
   category: creative
-  summary: "Reads a product URL or raw photo to extract exact visual details, materials, and labels. Grounds every generation in reality to maintain strict product consistency across your campaign."
+  summary: "Analyzes an e-commerce link or photo to map out your product's exact physical mechanics and extract clean reference images, building a highly accurate creative brief without any manual research or extraction."
 ---
 
 # Product Analysis
@@ -43,7 +43,7 @@ job is the objective facts.
 - **The URL can't be extracted** (no result, or the extractor isn't set up) → ask for a product photo
   instead and switch to photo mode.
 - **Every image fails the filter** (faces, wrong variant, not a product shot) → keep the single
-  cleanest, or hand off the description alone and tell the caller no clean image survived.
+  cleanest, or hand off the description alone and say plainly that no clean image survived.
 - **A supplied photo is too unclear to read** (blurry, cropped, ambiguous) → say what you can't
   determine and ask for a clearer shot rather than guessing the mechanic.
 - **Neither a URL nor a photo** → ask for one; there is nothing to analyze.

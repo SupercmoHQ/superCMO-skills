@@ -36,14 +36,14 @@ def image_generate(args):
     if dry_run or len(reqs) == 1:
         results = [_one(r) for r in reqs]
     else:                                     # multiple images → generate them in parallel
-        with ThreadPoolExecutor(max_workers=min(8, len(reqs))) as ex:
+        # Fan out to the SERVING provider's concurrency ceiling, not a fixed number: WaveSpeed's
+        # default account allows 3 concurrent tasks where fal allows far more, and exceeding it
+        # would 429 most of a batch. A mixed-model batch takes the strictest of its models.
+        width = min(supercmo_skills.max_parallel("image", r.get("model")) for r in reqs
+                    if isinstance(r, dict))
+        with ThreadPoolExecutor(max_workers=max(1, min(width, len(reqs)))) as ex:
             results = list(ex.map(_one, reqs))
-    pending = sum(1 for r in results if supercmo_skills.is_pending(r))
-    out = {"ok": all(supercmo_skills.job_ok(x) for x in results), "count": len(results), "results": results}
-    if pending:
-        out["pending"] = pending
-        out["hint"] = "some images are still generating — call job_status with each pending image's job handle to retrieve it (do not re-submit)."
-    return out
+    return supercmo_skills.batch_envelope(results, "image")
 
 
 registry.register(IMAGE_GENERATE, image_generate)

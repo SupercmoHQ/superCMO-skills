@@ -1,5 +1,5 @@
 {
-  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. One case per trigger surface (model/format kind), plus negatives. Commercial product-photography asks are still negatives: this skill does not claim that surface.",
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. One case per trigger surface (model/format kind), plus negatives. Commercial product photography routes to the generating-product-photos skill, so product-shot asks are negatives here.",
   "schema_version": 2,
   "trigger_keywords": ["generate image", "generate an image", "create an image", "create a picture", "make an image", "make a picture", "image of", "picture of", "design a graphic", "using this image", "in this style", "illustration", "cartoon", "portrait", "thumbnail", "infographic", "cinematic", "edit this", "swap the background"],
   "cases": [

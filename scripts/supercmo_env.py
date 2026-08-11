@@ -117,13 +117,40 @@ def resolve_vendor_route(*byok_vars):
     return "none", hint
 
 
+_RETRY_AFTER_MAX = 30    # seconds: a rate-limit hint we'll honour; beyond this our own backoff wins,
+                         # so one absurd header can't park a tool call for minutes
+
+
+def _retry_delay(attempt, err):
+    """How long to wait before the next attempt. A vendor that answers 429 usually says how long to
+    wait — honouring `Retry-After` clears a rate limit in one sleep where blind backoff burns every
+    attempt against it. Falls back to BACKOFF when the header is absent, unparseable, or absurd."""
+    after = getattr(err, "headers", None) and err.headers.get("Retry-After")
+    try:
+        wait = float(after)
+    except (TypeError, ValueError):
+        wait = None
+    if wait is not None and 0 <= wait <= _RETRY_AFTER_MAX:
+        return wait
+    return BACKOFF[min(attempt, len(BACKOFF) - 1)]
+
+
+def retryable_status(code):
+    """Whether an HTTP status is worth another identical attempt. No code at all means the network
+    failed; a 5xx is the server wobbling; 408 and 429 explicitly say try again. Every other 4xx is
+    the request itself being wrong, so resending it unchanged can only fail the same way."""
+    if code is None:
+        return True
+    return code >= 500 or code in (408, 429)
+
+
 def _request(method, url, body=None, headers=None, timeout=120, retries=None):
     """JSON request with retries. Returns (parsed, status, error). `retries` overrides the module
     default — pass 1 for a status poll so a single unanswered request can't stack up 3×timeout of
     dead wait inside one call (the caller paces its own retry loop)."""
     data = json.dumps(body).encode("utf-8") if body is not None else None
     hdrs = {"Content-Type": "application/json", "User-Agent": _USER_AGENT, **(headers or {})}
-    last_err, last_status = None, None
+    last_err, last_status, last_http = None, None, None
     attempts = RETRIES if retries is None else max(1, retries)
     for attempt in range(attempts):
         req = urllib.request.Request(url, data=data, headers=hdrs, method=method)
@@ -132,13 +159,13 @@ def _request(method, url, body=None, headers=None, timeout=120, retries=None):
                 return json.loads(resp.read().decode("utf-8")), resp.status, None
         except urllib.error.HTTPError as e:
             detail = e.read().decode("utf-8", "replace")[:500]
-            last_err, last_status = detail, e.code
-            if e.code in (400, 401, 402, 403, 404, 409, 429):
-                return None, e.code, detail  # no retry on client errors / rate limits
+            last_err, last_status, last_http = detail, e.code, e
+            if not retryable_status(e.code):
+                return None, e.code, detail  # the request is wrong — resending it can't help
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
-            last_err = f"{type(e).__name__}: {e}"
+            last_err, last_http = f"{type(e).__name__}: {e}", None
         if attempt < attempts - 1:
-            time.sleep(BACKOFF[min(attempt, len(BACKOFF) - 1)])
+            time.sleep(_retry_delay(attempt, last_http))
     return None, last_status, last_err
 
 
@@ -159,7 +186,7 @@ def _request_raw(method, url, body=None, headers=None, timeout=120, retries=None
     else:
         data = json.dumps(body).encode("utf-8") if body is not None else None
         hdrs = {"Content-Type": "application/json", "User-Agent": _USER_AGENT, **(headers or {})}
-    last_err, last_status = None, None
+    last_err, last_status, last_http = None, None, None
     attempts = RETRIES if retries is None else max(1, retries)
     for attempt in range(attempts):
         req = urllib.request.Request(url, data=data, headers=hdrs, method=method)
@@ -168,13 +195,13 @@ def _request_raw(method, url, body=None, headers=None, timeout=120, retries=None
                 return resp.read(), resp.headers.get("Content-Type", ""), resp.status, None
         except urllib.error.HTTPError as e:
             detail = e.read().decode("utf-8", "replace")[:500]
-            last_err, last_status = detail, e.code
-            if e.code in (400, 401, 402, 403, 404, 429):
+            last_err, last_status, last_http = detail, e.code, e
+            if not retryable_status(e.code):
                 return None, None, e.code, detail
         except (urllib.error.URLError, TimeoutError) as e:
-            last_err = f"{type(e).__name__}: {e}"
+            last_err, last_http = f"{type(e).__name__}: {e}", None
         if attempt < attempts - 1:
-            time.sleep(BACKOFF[min(attempt, len(BACKOFF) - 1)])
+            time.sleep(_retry_delay(attempt, last_http))
     return None, None, last_status, last_err
 
 

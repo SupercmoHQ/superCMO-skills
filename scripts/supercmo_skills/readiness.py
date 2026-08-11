@@ -70,14 +70,17 @@ def status(check=False):
 
 if __name__ == "__main__":
     # ponytail: env-driven self-check — no key set, then FAL_KEY set.
+    supercmo_env.reload_keys = lambda: None   # status() re-reads ~/.supercmo/.env; keep the test's env
     os.environ.pop("SUPERCMO_API_KEY", None)
     for v in (m.BYOK_ENV for m in client.provider_modules().values()):
         os.environ.pop(v, None)
     st = status()
     assert st["configured"] is False and all(v is None for v in st["capabilities"].values())
     assert {p["env_var"] for p in st["providers"]} == {m.BYOK_ENV for m in client.provider_modules().values()}
-    os.environ["FAL_KEY"] = "x"
-    st = status()
-    assert st["configured"] is True and st["capabilities"]["image"] == "BYO key"
-    del os.environ["FAL_KEY"]
+    for _v in ("WAVESPEED_API_KEY", "FAL_KEY"):   # either image/video key alone is enough
+        os.environ[_v] = "x"
+        st = status()
+        assert st["configured"] is True and st["capabilities"]["image"] == "BYO key", _v
+        assert st["capabilities"]["video"] == "BYO key", _v
+        del os.environ[_v]
     print("readiness OK")

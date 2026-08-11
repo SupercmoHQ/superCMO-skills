@@ -1,6 +1,6 @@
 [project]
 name = "supercmo-skills"
-version = "0.1.8"
+version = "0.1.9"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 description = "SuperCMO media client (image, video, audio): stdlib-only routing over BYO-direct vendor keys or one managed SuperCMO key."
