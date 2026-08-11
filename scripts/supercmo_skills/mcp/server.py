@@ -108,6 +108,10 @@ def main():
             sys.stdout.write(json.dumps(_error(None, -32700, "Parse error")) + "\n")
             sys.stdout.flush()
             continue
+        if not isinstance(msg, dict):  # valid JSON but not a JSON-RPC request object (scalar/array)
+            sys.stdout.write(json.dumps(_error(None, -32600, "Invalid Request")) + "\n")
+            sys.stdout.flush()
+            continue
         try:
             resp = handle(msg)
         except Exception as e:
