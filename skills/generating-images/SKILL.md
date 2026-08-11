@@ -1,11 +1,11 @@
 ---
 name: generating-images
-description: ALWAYS read this skill before generating or editing any image, or calling image_generate — text-to-image or image-to-image, simple or complex. Turns a text brief, optionally guided by reference images (a product photo, a character, a style to follow), into a still image. Analyzes intent, routes to the best model, and structures the prompt. Use whenever the user asks to generate, create, make, design, or edit an image.
+description: ALWAYS read this skill before generating or editing any image, or calling image_generate — text-to-image or image-to-image, simple or complex. Turns a text brief, optionally guided by reference images (a character, a style to follow, an existing photo to edit), into a still image. Analyzes intent, routes to the best model, and structures the prompt. Use whenever the user asks to generate, create, make, design, or edit an image — except commercial photography of a product being sold, which belongs to generating-product-photos.
 license: Apache-2.0
 metadata:
   version: "0.1.0"
   category: creative
-  summary: "Produces campaign-ready images from a text brief or edits existing photos. Uses reference images to lock in specific styles, characters, or products."
+  summary: "Routes your brief to the best of 10+ SOTA image models (like Nano Banana, GPT Image), writes detailed prompts as per model specifications and generates multiple variations instantly."
 ---
 
 # Image Generation
@@ -13,6 +13,12 @@ metadata:
 Turn a brief — text, optionally with reference image(s) — into a still image via the
 `image_generate` tool. Two decisions drive quality: **which model** (always) and **which format
 recipe** (only when the deliverable is a known one).
+
+**Before you route:** if the brief is commercial **product photography** — a packshot, a product in
+a styled scene, a hero or banner for a product, a product ad or carousel, an on-model or try-on shot,
+or restyling an existing product photo — hand off to the **`generating-product-photos`** skill, which
+owns that surface. Stay here for everything else: general images, graphics and posters, portraits,
+illustrations, cinematic stills, infographics, and one-off reference edits.
 
 ## Workflow
 
@@ -29,17 +35,17 @@ anything**.
 | A **drawn or rendered** look rather than a photograph — for example a cartoon, anime, illustration, flat vector, or 3D render | `nano-banana-2` | `references/prompt-nano-banana.md` |
 | A convincing **real person**, or a photographic frame with deliberate cinematography — for example a creator or influencer portrait, UGC, or a film-like still | `nano-banana-pro` | `references/prompt-nano-banana.md` |
 | **Altering a supplied image** — for example swapping a background, removing or replacing an element, or restaging the scene | `gpt-image-2` | `references/prompt-gpt-image-2.md` |
-| Altering a supplied image where a **real face must stay recognisable** | `seedream-4.5` | `references/prompt-seedream.md` |
+| Altering a supplied image where a **real face must stay recognisable** | `seedream-5` | `references/prompt-seedream.md` |
 
 When more than one applies, take them in this order:
 
 1. The user named a model → use it.
 2. Legible text is required → `gpt-image-2`, even over a person or a scene.
 3. The look is non-photographic → `nano-banana-2`, even when a person is involved.
-4. A supplied image is being altered → `gpt-image-2`; switch to `seedream-4.5` when a real person
+4. A supplied image is being altered → `gpt-image-2`; switch to `seedream-5` when a real person
    must stay recognisable.
 5. A supplied image is only a **style or mood cue** (match this look, don't edit that image) →
-   `nano-banana-2`, or `seedream-4.5` if a specific face must carry over too.
+   `nano-banana-2`, or `seedream-5` if a specific face must carry over too.
 
 If nothing clearly fits — an ordinary object or scene — use `nano-banana-2` (read
 `references/prompt-nano-banana.md`); or call `list_image_models` and pick by `strengths`. Use

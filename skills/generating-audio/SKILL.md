@@ -5,7 +5,7 @@ license: Apache-2.0
 metadata:
   version: "0.1.0"
   category: creative
-  summary: "Converts scripts into natural speech. Generates voiceovers, ad reads, and character dialogue, automatically handling pacing and voice selection."
+  summary: "Converts scripts into audio. Lets you preview voice candidates from top models before generating. It then formats your script's numbers, dates, and URLs so the chosen AI model pronounces them accurately."
 ---
 
 # Audio Generation

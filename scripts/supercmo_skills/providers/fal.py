@@ -22,8 +22,9 @@ import supercmo_env
 BASE = "https://fal.run"
 QUEUE_BASE = "https://queue.fal.run"
 BYOK_ENV = "FAL_KEY"
-KEY_ENABLES = "image · video  (broadest — recommended starter)"
+KEY_ENABLES = "image · video"
 KEY_SIGNUP = "fal.ai"
+MAX_PARALLEL = 8         # how wide a batch of generations may fan out on this provider
 _POLL_INTERVAL = 3       # seconds between status polls
 _MAX_POLLS = 150         # ceiling ≈ 450s sleep + per-poll network (~500-520s wall clock), kept UNDER the
                          # MCP client's 600s per-call timeout so the tool returns its own clean "timed
@@ -182,13 +183,30 @@ _STATUS_POLL_TIMEOUT = 15   # per status poll: short + single attempt, so one un
                             # freeze the caller's wait budget (the caller paces its own retry loop)
 
 
+def _reason(raw):
+    """The readable reason out of a fal error body — a content-checker rejection, a rejected input.
+    fal answers `{"detail": "..."}` or `{"detail": [{"msg": ..., "type": ...}]}`. None if neither."""
+    try:
+        body = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    detail = body.get("detail") if isinstance(body, dict) else None
+    if isinstance(detail, str):
+        return detail
+    if isinstance(detail, list) and detail and isinstance(detail[0], dict):
+        msg, typ = detail[0].get("msg"), detail[0].get("type")
+        return f"{msg} ({typ})" if msg and typ else msg or typ
+    return None
+
+
 def queue_submit(endpoint, fal_input, key):
     """Submit one job to fal's async queue. Returns
     {ok, request_id, status_url, response_url} | {ok: False, error, detail}."""
     sub, status, err = supercmo_env._request(
         "POST", f"{QUEUE_BASE}/{endpoint}", body=fal_input, headers={"Authorization": f"Key {key}"})
     if sub is None:
-        return {"ok": False, "error": f"submit failed ({status})", "detail": (err or "")[:500]}
+        return {"ok": False, "error": _reason(err) or f"submit failed ({status})",
+                "status": status, "detail": (err or "")[:500]}
     status_url, response_url = sub.get("status_url"), sub.get("response_url")
     if not status_url or not response_url:
         return {"ok": False, "error": "fal queue: missing status/response url", "detail": json.dumps(sub)[:500]}
@@ -206,18 +224,26 @@ def queue_status(status_url, response_url, key):
     headers = {"Authorization": f"Key {key}"}
     st, code, serr = supercmo_env._request("GET", status_url, headers=headers,
                                            timeout=_STATUS_POLL_TIMEOUT, retries=1)
-    if st is None:                                            # unreachable / slow / timed out → retry
-        return {"ok": False, "transient": True, "error": f"status check failed ({code})",
-                "detail": (serr or "")[:500]}
+    if st is None:
+        # No status code at all means the network failed; a 5xx is the vendor wobbling; 408 and 429
+        # explicitly mean try again. Any other 4xx is the request itself being wrong — a dead or
+        # expired handle, a bad key, input the vendor refuses — and retrying one polls forever.
+        kind = "transient" if supercmo_env.retryable_status(code) else "terminal"
+        return {"ok": False, kind: True, "error": _reason(serr) or f"status check failed ({code})",
+                "status": code, "detail": (serr or "")[:500]}
     state = st.get("status")
     if state in _PENDING_STATES:
         return {"ok": True, "done": False, "state": state}
     if state == "COMPLETED":
         res, rcode, rerr = supercmo_env._request("GET", response_url, headers=headers,
                                                  timeout=_STATUS_POLL_TIMEOUT, retries=1)
-        if res is None:                                      # result not fetched yet → retry
-            return {"ok": False, "transient": True, "error": f"result fetch failed ({rcode})",
-                    "detail": (rerr or "")[:500]}
+        if res is None:
+            # A finished job whose result answers 4xx has failed — the vendor refused the input or
+            # the content, and it will answer the same way forever. Only a missing code, a 5xx, or
+            # an explicit try-again is the result not being ready yet.
+            kind = "transient" if supercmo_env.retryable_status(rcode) else "terminal"
+            return {"ok": False, kind: True, "error": _reason(rerr) or f"result fetch failed ({rcode})",
+                    "status": rcode, "detail": (rerr or "")[:500]}
         return {"ok": True, "done": True, "result": res}
     return {"ok": False, "terminal": True, "error": f"fal queue state: {state}",
             "detail": json.dumps(st)[:500]}

@@ -40,5 +40,5 @@ stitching, finish).
 
 ## Hand off
 
-These four facts feed the generation prompt. Photo mode produces no new files — the caller uses the
-user's attached photo directly as the reference.
+These four facts feed the generation prompt. Photo mode produces no new files — the user's attached
+photo is used directly as the reference.

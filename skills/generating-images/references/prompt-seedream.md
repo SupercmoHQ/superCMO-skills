@@ -1,4 +1,4 @@
-# Prompt guide — seedream-4.5
+# Prompt guide — seedream-5
 
 Built for edits that must keep something recognisable — a face, a garment, a logo — while the rest of
 the frame changes. It reads several supplied images at once and can carry an element or a line of

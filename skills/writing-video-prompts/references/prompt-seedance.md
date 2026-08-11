@@ -37,7 +37,7 @@ When a start frame, reference, or first-and-last pair already fixes the look, ai
 
 ## Best practices and failure modes
 
-Structure any multi-beat video as an ordered storyboard — Shot 1, Shot 2, Shot 3 — in the order events happen, and do not force exact per-shot durations; precise timing is unstable and breaks the result, so let pacing follow the action. Keep references few and purposeful — four to five assets works best, and more than four reference people degrades stability, causing miscounts or duplicated "twin" characters. For a consistent face, use a headshot plus a full-body image rather than multi-view sheets, which the model may read as separate people. Keep the prompt focused and free of contradictions; an over-stuffed prompt confuses the model as much as a vague one does.
+Structure any multi-beat video as an ordered storyboard — Shot 1, Shot 2, Shot 3 — in the order events happen, each headed with its own time span. Keep the spans few and wide rather than many and tight; the instability comes from over-slicing a clip into more shots than it can hold, not from stating when each one runs. Keep references few and purposeful — four to five assets works best, and more than four reference people degrades stability, causing miscounts or duplicated "twin" characters. For a consistent face, use a headshot plus a full-body image rather than multi-view sheets, which the model may read as separate people. Keep the prompt focused and free of contradictions; an over-stuffed prompt confuses the model as much as a vague one does.
 
 Open with the subjects already in place in the first frame rather than on an empty establishing shot — start mid-scene unless a reveal is the point.
 

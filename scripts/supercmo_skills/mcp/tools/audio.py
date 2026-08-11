@@ -46,12 +46,7 @@ def audio_generate(args):
     else:
         with ThreadPoolExecutor(max_workers=min(8, len(reqs))) as ex:
             results = list(ex.map(_one, reqs))
-    pending = sum(1 for r in results if supercmo_skills.is_pending(r))
-    out = {"ok": all(supercmo_skills.job_ok(x) for x in results), "count": len(results), "results": results}
-    if pending:
-        out["pending"] = pending
-        out["hint"] = "some clips are still generating — call job_status with each pending clip's job handle to retrieve it (do not re-submit)."
-    return out
+    return supercmo_skills.batch_envelope(results, "clip")
 
 
 registry.register(AUDIO_GENERATE, audio_generate)

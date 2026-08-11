@@ -5,8 +5,9 @@ tools + the OSS override plugin), which call straight through here. Function nam
 names on purpose — one vocabulary: image_generate · video_generate · audio_generate.
 
 Routing is the LiteLLM-Router pattern: the agent passes a provider-blind model alias; the catalog
-maps it to an ordered route list; `_select_route` picks the first available BYO vendor route, else
-BYO fal, else the managed proxy. The agent is model-aware, provider-blind.
+maps it to an ordered route list; `_select_route` picks the first available BYO vendor route (that
+list leads with wavespeed and falls back to fal for image/video), else the managed proxy. The agent
+is model-aware, provider-blind.
 """
 import base64
 import os
@@ -24,12 +25,17 @@ from .providers import elevenlabs as _elevenlabs
 from .providers import fal as _fal
 from .providers import firecrawl as _firecrawl
 from .providers import gemini as _gemini
+from .providers import wavespeed as _wavespeed
 
 # provider name -> module (uniform contract: BYOK_ENV / is_available / <cap>_generate / <cap>_request_spec).
 # Catalog routes only name a provider for capabilities it implements, so a provider is never asked
 # for a capability it lacks.
-_PROVIDERS = {"fal": _fal, "elevenlabs": _elevenlabs,
+_PROVIDERS = {"wavespeed": _wavespeed, "fal": _fal, "elevenlabs": _elevenlabs,
               "gemini": _gemini, "firecrawl": _firecrawl}
+
+# Pins which vendor serves image/video when more than one vendor key is present; unset means catalog
+# order.
+_PROVIDER_OVERRIDE_ENV = "SUPERCMO_MEDIA_PROVIDER"
 
 
 def provider_modules():
@@ -56,19 +62,43 @@ _POLL_INTERVAL = 3           # first inter-poll sleep
 _POLL_INTERVAL_MAX = 15      # backoff ceiling
 
 
+def _preferred_first(routes):
+    """`routes` reordered so the `SUPERCMO_MEDIA_PROVIDER` lane, if named and known, is tried first.
+    An unset or unrecognised value leaves catalog order alone — pinning a lane must never be able to
+    fail a generation, only to change which key gets used when several would serve."""
+    want = (os.environ.get(_PROVIDER_OVERRIDE_ENV) or "").strip().lower()
+    if not want:
+        return routes
+    if want not in _PROVIDERS:
+        supercmo_env.dbg(f"{_PROVIDER_OVERRIDE_ENV}={want!r} names no known provider — ignoring")
+        return routes
+    return sorted(routes, key=lambda r: r["provider"] != want)
+
+
 def select_route(capability, model, allow_proxy=True):
-    """First available BYO vendor route > BYO fal route > managed proxy > none.
+    """First available direct vendor route (catalog order, or the `SUPERCMO_MEDIA_PROVIDER` lane
+    first) > managed proxy > none.
     Returns ("direct", provider_module, route) | ("proxy", None, None) | ("none", None, None).
 
-    allow_proxy=False resolves only BYO vendor routes — the SuperCMO proxy reuses this server-side to pick
-    a server-keyed vendor and must NOT fall back to the managed proxy (that would make it call itself)."""
-    for route in catalog.routes_of(capability, model):
+    allow_proxy=False resolves only direct vendor routes — the SuperCMO proxy reuses this server-side
+    to pick a server-keyed vendor and must NOT fall back to the managed proxy (that would make it
+    call itself)."""
+    for route in _preferred_first(catalog.routes_of(capability, model)):
         provider = _PROVIDERS.get(route["provider"])
         if provider and provider.is_available():
             return ("direct", provider, route)
     if allow_proxy and supercmo_env.supercmo_key():
         return ("proxy", None, None)
     return ("none", None, None)
+
+
+def max_parallel(capability, model):
+    """How many of this alias's generations may run at once. Providers differ by an order of
+    magnitude here — WaveSpeed's default (Bronze) account allows 3 concurrent tasks where fal
+    allows far more — so a batch fans out to the SERVING provider's ceiling instead of a fixed
+    number that would 429 half a batch on a fresh key. 8 when nothing resolves (proxy/no key)."""
+    _kind, provider, _route = select_route(capability, model, allow_proxy=False)
+    return getattr(provider, "MAX_PARALLEL", 8) if provider else 8
 
 
 _select_route = select_route   # internal alias (the image/video/audio callers below)
@@ -345,14 +375,14 @@ def _submit(capability, model, inp, kind, provider, route, call_id=None):
     return {"ok": False, "error": "no_provider_configured", "hint": _setup_hint(capability, model)}
 
 
-def _make_handle(capability, model, kind, sub, output_dir, adjusted=None):
+def _make_handle(capability, model, kind, sub, output_dir, adjusted=None, provider_name=None):
     """Build the stateless pending handle from a successful submit."""
     h = {"status": "pending", "capability": capability, "model": model, "output_dir": output_dir}
     if kind == "proxy":
         h["provider"], h["job_id"] = "proxy", sub.get("job_id")
-    else:                                    # queued direct vendor (fal)
-        h["provider"] = "fal"
-        h["request_id"] = sub.get("request_id")
+    else:                                    # queued direct vendor (wavespeed / fal)
+        h["provider"] = provider_name        # the handle names its OWN vendor, so a later rejoin
+        h["request_id"] = sub.get("request_id")   # polls the one that actually holds the job
         h["status_url"], h["response_url"] = sub.get("status_url"), sub.get("response_url")
     if adjusted:
         h["duration_adjusted"] = adjusted
@@ -366,11 +396,15 @@ def _poll_once(handle):
     cap = handle.get("capability")
     if handle.get("provider") == "proxy":
         return supercmo_env.proxy_job_status(handle.get("job_id"))
-    key = os.environ.get(_fal.BYOK_ENV)
-    if not key:
-        return {"ok": False, "error": "no_provider_configured",
-                "hint": f"set {_fal.BYOK_ENV} (the key that submitted this job) and retry."}
-    return getattr(_fal, f"{cap}_status")(handle.get("status_url"), handle.get("response_url"), key)
+    provider = _PROVIDERS.get(handle.get("provider"))
+    if provider is None:
+        return {"ok": False, "error": "invalid job handle",
+                "hint": f"unknown provider {handle.get('provider')!r} on this job handle."}
+    key = os.environ.get(provider.BYOK_ENV)
+    if not key:                              # the job belongs to whichever vendor submitted it, so
+        return {"ok": False, "error": "no_provider_configured",     # only THAT key can rejoin it
+                "hint": f"set {provider.BYOK_ENV} (the key that submitted this job) and retry."}
+    return getattr(provider, f"{cap}_status")(handle.get("status_url"), handle.get("response_url"), key)
 
 
 def _finalize(handle, status):
@@ -432,7 +466,8 @@ def _submit_or_run(capability, model, inp, kind, provider, route, output_dir, wa
         if adjusted:
             sub["duration_adjusted"] = adjusted
         return _persist_media(sub, output_dir, capability)
-    handle = _make_handle(capability, model, kind, sub, output_dir, adjusted)
+    handle = _make_handle(capability, model, kind, sub, output_dir, adjusted,
+                          provider_name=(route or {}).get("provider"))
     return handle if not wait else _wait_for_job(handle, deadline_s)
 
 
@@ -443,7 +478,7 @@ def job_status(job, wait=True, deadline_s=None):
     returns either the finished media or, if the job is still running, the same pending handle to
     call again; wait=False does a single check. Returns {ok, video|audio, ...} | pending handle |
     {ok: False, error, ...}."""
-    if not isinstance(job, dict) or job.get("provider") not in ("fal", "proxy") \
+    if not isinstance(job, dict) or job.get("provider") not in (set(_PROVIDERS) | {"proxy"}) \
             or not job.get("capability"):
         return {"ok": False, "error": "invalid job handle",
                 "hint": "pass the exact pending job object a prior generate/job_status call returned."}
@@ -465,6 +500,27 @@ def job_ok(result):
     running (a `pending` handle). Batch tools use this for their top-level `ok` so a batch isn't
     reported as failed just because some items are still generating."""
     return bool(result.get("ok")) or is_pending(result)
+
+
+def batch_envelope(results, noun):
+    """Top-level result every batch tool returns: what finished, what is still running, and what
+    died. A batch can mix all three, so both counts and both hints appear when both apply. `noun` is
+    what one entry is called (image, clip, job)."""
+    pending = sum(1 for r in results if is_pending(r))
+    failed = sum(1 for r in results if not job_ok(r))
+    out = {"ok": all(job_ok(x) for x in results), "count": len(results), "results": results}
+    hints = []
+    if failed:
+        out["failed"] = failed
+        hints.append(f"{failed} {noun}(s) failed — a failed {noun} is terminal and will never "
+                     f"finish. Read its `error`, report it, and never poll or re-submit it.")
+    if pending:
+        out["pending"] = pending
+        hints.append(f"{pending} still generating — call job_status with each pending {noun}'s job "
+                     "handle to retrieve it (do not re-submit).")
+    if hints:
+        out["hint"] = " ".join(hints)
+    return out
 
 
 # -------------------------------------------------------------------------------- image
@@ -495,6 +551,23 @@ def image_generate(prompt, model=None, aspect_ratio=None, resolution=None,
     kind, provider, route = _select_route("image", model)
     if kind == "none":
         return {"ok": False, "error": "no_provider_configured", "hint": _setup_hint("image", model)}
+    # Aspect support differs per model; without this the provider silently falls back to another ratio.
+    if kind == "direct" and aspect not in route["sizes"]:
+        return {"ok": False,
+                "error": f"{model} does not accept aspect_ratio {aspect}.",
+                "supported": catalog.image_aspects(route),
+                "hint": "call list_image_models — each model lists the ratios it accepts"}
+    # Resolution likewise, and for the same reason the video path validates it: a tier the model
+    # can't render was previously dropped on the way to the vendor, so a 4k request came back as a
+    # 1k image with nothing to say it had been downgraded. Models with no resolution control render
+    # at the base tier, which is why that one always passes.
+    tiers = catalog.image_resolutions(route) if kind == "direct" else None
+    if tiers is not None and res not in (tiers or [catalog.IMAGE_DEFAULT_RESOLUTION]):
+        return {"ok": False,
+                "error": (f"{model} does not render at {res}." if tiers
+                          else f"{model} has no resolution control — it renders at one native tier."),
+                "supported": tiers or [catalog.IMAGE_DEFAULT_RESOLUTION],
+                "hint": "call list_image_models — each model lists the tiers it renders at"}
     if kind == "direct" and len(refs) > route.get("max_refs", 0):
         return {"ok": False,
                 "error": f"the {route['provider']} route for {model} accepts at most "
@@ -534,8 +607,11 @@ def _resolve_video(base_route, populated):
     ep = catalog.video_endpoint_for(base_route, populated)
     if ep is None:
         return None, None
+    # `media_scalar` rides along for providers that declare list-vs-single per param rather than
+    # encoding it in the param name (wavespeed); fal endpoints simply don't set it.
     resolved = {**base_route, "id": ep["id"], "media": ep["media"], "aspects": ep["aspects"],
-                "durations": ep["durations"], "resolutions": ep["resolutions"]}
+                "durations": ep["durations"], "resolutions": ep["resolutions"],
+                "media_scalar": ep.get("media_scalar", ())}
     return ep, resolved
 
 
@@ -558,7 +634,11 @@ def video_generate(prompt, model=None, aspect_ratio=None, duration=None, resolut
     model = model or catalog.default_model("video")
     if catalog.get("video", model) is None:
         return {"ok": False, "error": f"unknown video model: {model}", "hint": "call list_video_models"}
-    route = catalog.routes_of("video", model)[0]
+    # Resolve the lane FIRST: endpoint ids, media param names and per-endpoint limits are all
+    # provider-specific, so validating against one lane and submitting to another would send fal's
+    # payload to wavespeed. `_sel` is that lane's base route; `resolved` narrows it to one endpoint.
+    kind, provider, _sel = _select_route("video", model)
+    route = _sel or catalog.routes_of("video", model)[0]     # no key yet → describe the primary lane
 
     refs = {"reference_images": reference_images, "reference_videos": reference_videos,
             "reference_audios": reference_audios}
@@ -623,7 +703,6 @@ def video_generate(prompt, model=None, aspect_ratio=None, duration=None, resolut
 
     inp = {**enc, "prompt": prompt, "duration": dur, "resolution": resolution,
            "aspect_ratio": (aspect_ratio.lower() if aspect_ratio else None), "generate_audio": generate_audio}
-    kind, provider, _sel = _select_route("video", model)
     if dry_run:
         res = _dispatch("video", model, inp, kind, provider, resolved, dry_run,
                         "video_request_spec", "video_generate")
@@ -848,6 +927,33 @@ def generate_managed(capability, model, inp):
     return getattr(provider, gen_attr)(route, {"model": model, **inp}, key)
 
 
+def request_spec_managed(capability, model, inp):
+    """The exact vendor request `generate_managed` would send for this input — WITHOUT sending it.
+    Returns {ok: True, provider, url, body} | {ok: False, error, hint}.
+
+    Same route + endpoint resolution as generate_managed, so a caller can inspect a call against the
+    vendor that will actually run it. It lives beside generate_managed deliberately: a second
+    implementation of "which endpoint, which params" would drift from the one that generates."""
+    kind, provider, route = select_route(capability, model, allow_proxy=False)
+    if kind != "direct" or provider is None:
+        return {"ok": False, "error": "no_provider_configured",
+                "hint": f"no server vendor key for any {capability} route of '{model}'"}
+    if capability == "video":
+        populated = {f for f in _VIDEO_MEDIA_FIELDS if inp.get(f)}
+        ep, route = _resolve_video(route, populated)
+        if ep is None:
+            return {"ok": False, "error": "unsupported_media_combination",
+                    "hint": f"{model} can't take that combination of inputs in one call"}
+    spec_attr = "analyze_request_spec" if capability == "analysis" else f"{capability}_request_spec"
+    build = getattr(provider, spec_attr, None)
+    if build is None:
+        return {"ok": False, "error": "no_request_spec",
+                "hint": f"the {route['provider']} provider cannot describe a {capability} request"}
+    spec = build(route, {"model": model, **inp})
+    return {"ok": True, "provider": route["provider"], "url": spec.get("url"),
+            "body": spec.get("body")}
+
+
 def list_voices_managed(filters):
     """Server-side voice discovery for the managed proxy: our own audio account's voices, read with
     the server key. `filters` = {search, gender, accent, age, use_case, language, limit}. Returns the
@@ -870,14 +976,13 @@ def list_voices_managed(filters):
 
 
 if __name__ == "__main__":
-    _KEYS = ("FAL_KEY", "ELEVENLABS_API_KEY", "GEMINI_API_KEY",
-             "FIRECRAWL_API_KEY", "SUPERCMO_API_KEY")
+    _KEYS = ("WAVESPEED_API_KEY", "FAL_KEY", "ELEVENLABS_API_KEY", "GEMINI_API_KEY",
+             "FIRECRAWL_API_KEY", "SUPERCMO_API_KEY", _PROVIDER_OVERRIDE_ENV)
 
     # Route tests below build their own credential states in os.environ. Keep the user's
     # ~/.supercmo/.env from repopulating those keys between _clear() and a route lookup.
     _REAL_RELOAD_KEYS = supercmo_env.reload_keys
     supercmo_env.reload_keys = lambda: None
-
     def _clear():
         for k in _KEYS:
             os.environ.pop(k, None)
@@ -887,15 +992,73 @@ if __name__ == "__main__":
     assert video_generate("x", dry_run=True)["error"] == "no_provider_configured"
     assert audio_generate("hi", voice="V"*20, dry_run=True)["error"] == "no_provider_configured"
 
-    _clear(); os.environ["FAL_KEY"] = "k"      # fal serves image / video (incl. grok via fal)
+    _clear(); os.environ["FAL_KEY"] = "k"      # fal alone still serves image / video, unchanged
     assert image_generate("x", model="nano-banana", dry_run=True)["route"] == "fal"
     assert image_generate("x", model="grok-imagine", dry_run=True)["route"] == "fal"
     assert video_generate("x", model="seedance-2.0", dry_run=True)["route"] == "fal"
     assert video_generate("x", model="grok-imagine-video", dry_run=True)["route"] == "fal"
     assert image_generate("x", model="gpt-image-2", dry_run=True)["route"] == "fal"
+    assert max_parallel("image", "nano-banana") == 8            # fal's ceiling
     # no fal route for audio — a fal-only user is told which key to set
     assert audio_generate("hi", voice="V"*20, dry_run=True)["error"] == "no_provider_configured"
     assert "ELEVENLABS_API_KEY" in audio_generate("hi", voice="V"*20, dry_run=True)["hint"]
+
+    # ---- wavespeed is the primary image/video lane; fal serves when it's the only key ----
+    _clear(); os.environ["WAVESPEED_API_KEY"] = "k"
+    for _m in ("nano-banana", "nano-banana-pro", "grok-imagine", "gpt-image-2", "flux-2-pro"):
+        assert image_generate("x", model=_m, dry_run=True)["route"] == "wavespeed", _m
+    for _m in ("seedance-2.0", "seedance-2.0-fast", "veo-3.1", "kling-3.0-pro", "wan-2.7"):
+        assert video_generate("x", model=_m, dry_run=True)["route"] == "wavespeed", _m
+    assert max_parallel("image", "nano-banana") == 3            # wavespeed's Bronze ceiling
+    # the emitted body is WaveSpeed's own vocabulary, not a translation of fal's
+    _ws_img = image_generate("x", model="nano-banana-pro", aspect_ratio="16:9", resolution="2k",
+                             dry_run=True)["request"]
+    assert _ws_img["url"].startswith("https://api.wavespeed.ai/api/v3/"), _ws_img
+    assert _ws_img["headers"]["Authorization"] == "Bearer ***", _ws_img   # key never leaks
+    assert _ws_img["body"]["aspect_ratio"] == "16:9" and _ws_img["body"]["resolution"] == "2k", _ws_img
+    # FLUX takes pixels, not a ratio
+    assert image_generate("x", model="flux-2-pro", aspect_ratio="16:9",
+                          dry_run=True)["request"]["body"]["size"] == "1344*768"
+    # a tier the model can't render is refused up front (see the resolution block below)
+    assert not image_generate("x", model="seedream-5", resolution="4k", dry_run=True)["ok"]
+    # a tier it CAN render reaches the vendor as its own lowercase value
+    assert image_generate("x", model="seedream-5", resolution="2k",
+                          dry_run=True)["request"]["body"]["resolution"] == "2k"
+    # start+end frames fold into image-to-video here (fal needs a separate endpoint for them)
+    _ws_vid = video_generate("x", model="veo-3.1", start_frame_image="https://x/a.png",
+                             end_frame_image="https://x/b.png", duration=8, dry_run=True)["request"]
+    assert _ws_vid["url"].endswith("/google/veo3.1/image-to-video"), _ws_vid
+    assert _ws_vid["body"]["image"] == "https://x/a.png" and _ws_vid["body"]["last_image"] == "https://x/b.png", _ws_vid
+    assert _ws_vid["body"]["duration"] == 8, _ws_vid            # plain int; fal wants "8s"
+    # Seedance references ride on text-to-video on this lane
+    _ws_ref = video_generate("x", model="seedance-2.0", reference_images=["https://x/r.png"],
+                             dry_run=True)["request"]
+    assert _ws_ref["url"].endswith("/bytedance/seedance-2.0/text-to-video"), _ws_ref
+    assert _ws_ref["body"]["reference_images"] == ["https://x/r.png"], _ws_ref
+    # ...and a bare prompt must still pick text-to-video, not the fewer-keyed image-to-video
+    assert video_generate("x", model="seedance-2.0", dry_run=True)["request"]["url"].endswith(
+        "/text-to-video")
+    # Wan's driving audio is a single track, not a list
+    assert video_generate("x", model="wan-2.7", start_frame_image="https://x/a.png",
+                          reference_audios=["https://x/t.mp3"],
+                          dry_run=True)["request"]["body"]["audio"] == "https://x/t.mp3"
+
+    # ---- both keys: catalog order wins, and SUPERCMO_MEDIA_PROVIDER overrides it ----
+    os.environ["FAL_KEY"] = "k"
+    assert image_generate("x", model="nano-banana", dry_run=True)["route"] == "wavespeed"
+    assert video_generate("x", model="seedance-2.0", dry_run=True)["route"] == "wavespeed"
+    os.environ[_PROVIDER_OVERRIDE_ENV] = "fal"
+    assert image_generate("x", model="nano-banana", dry_run=True)["route"] == "fal"
+    assert video_generate("x", model="seedance-2.0", dry_run=True)["route"] == "fal"
+    assert video_generate("x", model="seedance-2.0", dry_run=True)["request"]["url"].startswith(
+        "https://queue.fal.run/")                              # pinned lane really is fal's API
+    os.environ[_PROVIDER_OVERRIDE_ENV] = "nonsense"            # unknown value must never fail a call
+    assert image_generate("x", model="nano-banana", dry_run=True)["route"] == "wavespeed"
+    os.environ.pop(_PROVIDER_OVERRIDE_ENV)
+    # pinning a lane whose key is absent falls through to the one that IS configured
+    _clear(); os.environ["FAL_KEY"] = "k"; os.environ[_PROVIDER_OVERRIDE_ENV] = "wavespeed"
+    assert image_generate("x", model="nano-banana", dry_run=True)["route"] == "fal"
+    _clear()
 
     os.environ["ELEVENLABS_API_KEY"] = "k"
     _V = "EXAVITQu4vr4xnSDxMaL"                # an id-shaped voice, as list_voices returns
@@ -949,6 +1112,24 @@ if __name__ == "__main__":
     finally:
         _elevenlabs.list_voices = _real_lv
     _clear(); os.environ["SUPERCMO_API_KEY"] = "k"
+
+    # ---- image resolution is validated like video's: a tier the model can't render errors ----
+    _clear(); os.environ["WAVESPEED_API_KEY"] = "k"
+    _r4k = image_generate("x", model="seedream-5", resolution="4k", dry_run=True)
+    assert not _r4k["ok"] and _r4k["supported"] == ["1k", "2k"], _r4k     # seedream tops out at 2k
+    assert image_generate("x", model="seedream-5", resolution="2k", dry_run=True)["ok"]
+    # a model with no resolution control refuses an upscale rather than quietly returning its base tier
+    _rf = image_generate("x", model="flux-2-pro", resolution="4k", dry_run=True)
+    assert not _rf["ok"] and "no resolution control" in _rf["error"], _rf
+    assert _rf["supported"] == ["1k"], _rf
+    # ...but the default tier still works everywhere, which is what every un-specified call sends
+    for _m in catalog.IMAGE_MODELS:
+        assert image_generate("x", model=_m, dry_run=True)["ok"], _m
+        assert image_generate("x", model=_m, resolution="1k", dry_run=True)["ok"], _m
+    # discovery advertises the tiers, so the agent can avoid the error entirely
+    _rows = {r["model"]: r["resolutions"] for r in catalog.image_models_listing()["models"]}
+    assert _rows["seedream-5"] == ["1k", "2k"] and _rows["flux-2-pro"] == [], _rows
+    _clear()
 
     # image ref cap: exceeding a fal route's max_refs → actionable error
     _clear(); os.environ["FAL_KEY"] = "k"
@@ -1007,12 +1188,56 @@ if __name__ == "__main__":
                       ({"images": [{"url": "https://cdn/i.png"}], "seed": 7}, 200, None)]
         idone = job_status(ih, wait=False)
         assert idone["ok"] and idone["images"][0]["url"] == "https://cdn/i.png" and idone["seed"] == 7, idone
+
+        # a handle carries the vendor that ACTUALLY submitted it, and the rejoin dispatches on that —
+        # so a wavespeed job is polled with wavespeed's single-GET protocol, not fal's two-step one.
+        _clear(); os.environ["WAVESPEED_API_KEY"] = "k"
+        _script[:] = [({"code": 200, "data": {"id": "p1", "status": "created",
+                                              "urls": {"get": "https://api/w/p1/result"}}}, 200, None)]
+        wh = video_generate("a cat walking", model="seedance-2.0", wait=False)
+        assert wh["status"] == "pending" and wh["provider"] == "wavespeed", wh
+        _script[:] = [({"code": 200, "data": {"status": "completed",
+                                              "outputs": ["https://cdn/w.mp4"]}}, 200, None)]
+        wdone = job_status(wh, wait=False)     # ONE poll, not two — proof it used wavespeed's shape
+        assert wdone["ok"] and wdone["video"]["url"] == "https://cdn/w.mp4", wdone
+        assert not _script, f"wavespeed rejoin should need exactly one request; {len(_script)} unused"
+
+        # rejoining a wavespeed handle without ITS key names that key, not whichever one is set
+        _clear(); os.environ["FAL_KEY"] = "k"
+        stranded = job_status(wh, wait=False)
+        assert stranded["error"] == "no_provider_configured", stranded
+        assert "WAVESPEED_API_KEY" in stranded["hint"], stranded
     finally:
         supercmo_env._request = _real
 
     # wait=True with no provider configured still errors cleanly (no network)
     _clear()
     assert video_generate("x", model="seedance-2.0")["error"] == "no_provider_configured"
+
+    # ---- request_spec_managed: the same resolution as generate_managed, without generating ----
+    _clear(); os.environ["WAVESPEED_API_KEY"] = "k"
+    _rs = request_spec_managed("image", "nano-banana-pro", {"prompt": "x", "aspect_ratio": "16:9"})
+    assert _rs["ok"] and _rs["provider"] == "wavespeed", _rs
+    assert _rs["url"].endswith("/google/nano-banana-pro/text-to-image"), _rs
+    assert _rs["body"]["aspect_ratio"] == "16:9" and _rs["body"]["prompt"] == "x", _rs
+    # video resolves the endpoint the same way generate_managed does (start+end → image-to-video)
+    _rv = request_spec_managed("video", "veo-3.1", {"prompt": "x", "start_frame_image": "https://x/a.png",
+                                                   "end_frame_image": "https://x/b.png", "duration": 8})
+    assert _rv["ok"] and _rv["url"].endswith("/google/veo3.1/image-to-video"), _rv
+    assert _rv["body"]["last_image"] == "https://x/b.png" and _rv["body"]["duration"] == 8, _rv
+    # the flag moves it to the other vendor, ids and param names and all
+    os.environ["FAL_KEY"] = "k"; os.environ[_PROVIDER_OVERRIDE_ENV] = "fal"
+    _rf = request_spec_managed("video", "veo-3.1", {"prompt": "x", "start_frame_image": "https://x/a.png",
+                                                   "end_frame_image": "https://x/b.png", "duration": 8})
+    assert _rf["provider"] == "fal" and _rf["url"].endswith("/first-last-frame-to-video"), _rf
+    assert _rf["body"]["last_frame_url"] == "https://x/b.png" and _rf["body"]["duration"] == "8s", _rf
+    os.environ.pop(_PROVIDER_OVERRIDE_ENV)
+    # a combination no endpoint accepts is reported, not priced
+    assert request_spec_managed("video", "grok-imagine-video",
+                                {"prompt": "x", "start_frame_image": "a", "reference_images": ["b"]}
+                                )["error"] == "unsupported_media_combination"
+    _clear()
+    assert request_spec_managed("image", "nano-banana", {"prompt": "x"})["error"] == "no_provider_configured"
 
     # ---- generate_managed: the ONE server-side entry the proxy calls (stub providers, no network) ----
     _seen = {}

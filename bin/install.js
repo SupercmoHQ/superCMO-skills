@@ -289,11 +289,13 @@ function runInstall(hosts, opts) {
   console.log(
     "  Option B · Bring your own keys (free) — add a vendor key, then RESTART your host:",
   );
-  // Each BYOK key → what it unlocks. FAL drives image_generate + video_generate; GEMINI drives
-  // image_analysis + video_analysis (used across the product, image and video skills); ELEVENLABS
-  // drives audio; FIRECRAWL drives url_extraction. Ordered by how much each one gives you.
+  // Each BYOK key → what it unlocks. WAVESPEED or FAL drives image_generate + video_generate (either
+  // one serves every model; WaveSpeed is the recommended default); GEMINI drives image_analysis +
+  // video_analysis (used across the product, image and video skills); ELEVENLABS drives audio;
+  // FIRECRAWL drives url_extraction. Ordered by how much each one gives you.
   const KEY_GUIDE = [
-    ["FAL_KEY", "generate images + video", "https://fal.ai/dashboard/keys"],
+    ["WAVESPEED_API_KEY", "generate images + video (recommended)", "https://wavespeed.ai/dashboard"],
+    ["FAL_KEY", "generate images + video (also supported)", "https://fal.ai/dashboard/keys"],
     [
       "GEMINI_API_KEY",
       "analyze a photo or video",
