@@ -19,7 +19,7 @@ import supercmo_env
 from . import catalog, paths
 try:
     from . import telemetry as _telemetry  # anonymous, opt-out usage counts; never required
-except Exception:
+except ImportError:  # only an absent module degrades; a bug inside telemetry must surface, not hide
     _telemetry = None
 from .providers import elevenlabs as _elevenlabs
 from .providers import fal as _fal

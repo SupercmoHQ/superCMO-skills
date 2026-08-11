@@ -19,6 +19,23 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Package import smoke + self-tests (blocking)
+        # Installs the built wheel into a CLEAN venv (the shipped/uvx layout) and asserts the
+        # library does NOT mutate sys.path on import — the exact gap that let the sys.path
+        # stdlib-shadowing bug ship — then runs the modules' self-checks. Telemetry is disabled
+        # so CI never phones home (the client self-test exercises the dispatch path, which records).
+        env:
+          SUPERCMO_TELEMETRY: "false"
+          DO_NOT_TRACK: "1"
+        run: |
+          python -m venv /tmp/smoke
+          /tmp/smoke/bin/pip install --quiet .
+          /tmp/smoke/bin/python -c "import sys; b=list(sys.path); import supercmo_skills, supercmo_env; assert sys.path == b, f'library mutated sys.path on import: {sys.path}'; print('import smoke OK — sys.path unchanged')"
+          for m in supercmo_skills supercmo_skills.client supercmo_skills.catalog supercmo_skills.readiness supercmo_skills.providers.fal supercmo_skills.providers.wavespeed; do
+            echo "self-test: python -m $m"; /tmp/smoke/bin/python -m "$m"
+          done
+          /tmp/smoke/bin/python -m supercmo_env --selftest
+
       - name: Structural + frontmatter validation (blocking)
         run: |
           pip install pyyaml
@@ -55,3 +72,14 @@ jobs:
         # should-trigger / should-not-trigger per skill. Reports on PRs; never gates merge.
         continue-on-error: true
         run: python3 tests/evals/run_eval.py
+
+  js-tests:
+    # The npx installer suite (bin/lib/*.test.js) — defined in package.json, never run in CI until now.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: JS installer tests (blocking)
+        run: npm test   # node --test bin/lib/*.test.js — zero deps, no install step needed

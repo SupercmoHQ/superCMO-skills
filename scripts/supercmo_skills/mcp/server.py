@@ -12,7 +12,7 @@ from . import tools  # noqa: F401 (registers tools on import)
 
 try:
     from supercmo_skills import telemetry  # anonymous, opt-out usage counts
-except Exception:  # telemetry is best-effort; never block the server on it
+except ImportError:  # only an absent module degrades; a bug inside telemetry must surface, not hide
     telemetry = None
 if telemetry is not None:
     try:
