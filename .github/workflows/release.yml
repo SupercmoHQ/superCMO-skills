@@ -1,7 +1,7 @@
 name: Release
 
 # Tag a release — the tag must match the version in .claude-plugin/plugin.json:
-#   git tag v0.1.7 && git push origin v0.1.7
+#   git tag v0.1.8 && git push origin v0.1.8
 #
 # Jobs:
 #   release       — always: build the plugin bundle + GitHub Release (no external publish).
