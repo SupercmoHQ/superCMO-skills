@@ -43,7 +43,7 @@ jobs:
       version: ${{ steps.decide.outputs.version }}
       release: ${{ steps.decide.outputs.release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # need the full tag list to tell whether this version was already released
       - name: Decide whether package.json's version is a new release
@@ -78,8 +78,8 @@ jobs:
       contents: read
       id-token: write   # OIDC Trusted Publishing — no token stored
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Build wheel + sdist
@@ -102,12 +102,12 @@ jobs:
     env:
       VERSION: ${{ needs.gate.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"   # Active LTS; npm 12 needs Node >= 22.22.2 and Node 20 is EOL
           registry-url: "https://registry.npmjs.org"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"   # prepublishOnly runs scripts/quick_validate.py (needs pyyaml)
       - run: npm install -g npm@12.0.2   # pinned (OIDC needs npm >= 11.5.1); bump deliberately
@@ -135,7 +135,7 @@ jobs:
     env:
       VERSION: ${{ needs.gate.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install mcp-publisher
         # Pinned release + verified checksum — this binary logs in via OIDC and publishes to the
         # registry, so download it to disk, verify sha256, THEN extract (never pipe an unverified,
@@ -164,13 +164,13 @@ jobs:
     env:
       TAG: v${{ needs.gate.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false   # this job runs untrusted npx (mcpb) with contents:write; gh uses GH_TOKEN, not the git cred
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
       - name: Build plugin bundle
