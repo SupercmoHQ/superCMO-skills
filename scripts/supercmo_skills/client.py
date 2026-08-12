@@ -19,7 +19,7 @@ import supercmo_env
 from . import catalog, paths
 try:
     from . import telemetry as _telemetry  # anonymous, opt-out usage counts; never required
-except Exception:
+except ImportError:  # only an absent module degrades; a bug inside telemetry must surface, not hide
     _telemetry = None
 from .providers import elevenlabs as _elevenlabs
 from .providers import fal as _fal
@@ -305,12 +305,19 @@ def _media_bytes(item):
         except Exception:
             return None, None
     if url.startswith(("http://", "https://")):
+        # SSRF-guarded fetch (validated + pinned IP, per-hop redirect re-validation, size cap) — the
+        # same seam agent-supplied URLs use, so a vendor result URL can't be steered at an internal IP.
         # Tight budget: persistence is best-effort, so a slow/flaky CDN must NOT block the
         # (already-long) generation past the caller's tool-call timeout. On failure we return
         # (None, None) and the item keeps its playable url — the tool still returns promptly.
         t0 = time.time()
-        data, ctype, _status, _err = supercmo_env._request_raw(
-            "GET", url, timeout=_MEDIA_DL_TIMEOUT, retries=_MEDIA_DL_RETRIES)
+        data = ctype = None
+        for attempt in range(_MEDIA_DL_RETRIES):
+            try:
+                data, ctype = supercmo_env.safe_fetch_bytes(url, timeout=_MEDIA_DL_TIMEOUT)
+                break
+            except ValueError as e:   # safe_fetch_bytes normalizes every failure (policy + network) to ValueError
+                supercmo_env.dbg(f"media download attempt {attempt + 1}/{_MEDIA_DL_RETRIES} failed: {e}")
         supercmo_env.dbg(f"media download {'ok' if data else 'FAILED'} "
                          f"({len(data) if data else 0}B, {time.time() - t0:.1f}s) {url[:80]}")
         if data is not None:

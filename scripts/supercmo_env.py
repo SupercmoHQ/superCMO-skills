@@ -56,6 +56,8 @@ def _load_key_file(path=KEY_FILE):
             continue
         k, v = line.split("=", 1)
         k, v = k.strip(), v.strip()
+        if k.startswith("export") and k[6:7].isspace():   # tolerate `export FOO=bar` dotenv lines
+            k = k[6:].strip()
         if v[:1] not in ("'", '"') and " #" in v:   # strip an inline comment on an unquoted value
             v = v.split(" #", 1)[0].strip()
         v = v.strip("'").strip('"')
@@ -214,8 +216,12 @@ _SSRF_MAX_BYTES = 512 * 1024 * 1024   # 512 MB cap on a downloaded asset
 
 def _ip_is_public(ip_str):
     a = ipaddress.ip_address(ip_str)
-    if a.version == 6 and a.ipv4_mapped is not None:   # ::ffff:169.254.169.254 etc.
-        a = a.ipv4_mapped
+    if a.version == 6:
+        # An IPv6 address can EMBED an IPv4 one (::ffff:x mapped, or 2002:x::/16 6to4). Validate the
+        # embedded IPv4, else e.g. 2002:a9fe:a9fe:: reaches 169.254.169.254 (cloud metadata) as "global".
+        embedded = a.ipv4_mapped or a.sixtofour
+        if embedded is not None:
+            a = embedded
     return not (a.is_private or a.is_loopback or a.is_link_local or a.is_reserved
                 or a.is_multicast or a.is_unspecified) and a.is_global
 
@@ -294,6 +300,8 @@ def safe_download(url, dest, timeout=60, max_bytes=_SSRF_MAX_BYTES, _redirects=3
                     raise ValueError("download exceeds size cap")
                 f.write(chunk)
         return dest
+    except (OSError, http.client.HTTPException) as e:   # timeout / conn reset / TLS / truncated response
+        raise ValueError(f"download failed: {type(e).__name__}: {e}") from e
     finally:
         conn.close()
 
@@ -335,6 +343,8 @@ def safe_fetch_bytes(url, timeout=60, max_bytes=_SSRF_MAX_BYTES, _redirects=3):
             if len(data) > max_bytes:
                 raise ValueError("fetch exceeds size cap")
         return bytes(data), resp.headers.get("Content-Type", "")
+    except (OSError, http.client.HTTPException) as e:   # timeout / conn reset / TLS / truncated response
+        raise ValueError(f"fetch failed: {type(e).__name__}: {e}") from e
     finally:
         conn.close()
 
@@ -431,22 +441,32 @@ def proxy_spec(capability, body):
 
 
 def _selftest():
-    """Assert key-file loading and the managed-proxy error/idempotency contract."""
+    """Assert the SSRF IP classifier, key-file loading and the managed-proxy error/idempotency contract."""
     global _request
+    # SSRF classifier: an embedded-IPv4 private/metadata address must NOT read as public (mapped + 6to4).
+    assert _ip_is_public("8.8.8.8") is True
+    assert _ip_is_public("127.0.0.1") is False
+    assert _ip_is_public("169.254.169.254") is False
+    assert _ip_is_public("2002:a9fe:a9fe::") is False       # 6to4 -> 169.254.169.254 (cloud metadata)
+    assert _ip_is_public("2002:7f00:0001::") is False       # 6to4 -> 127.0.0.1
+    assert _ip_is_public("::ffff:10.0.0.1") is False        # ipv4-mapped -> 10.0.0.1
+    assert _ip_is_public("2606:4700:4700::1111") is True    # real public IPv6 (Cloudflare)
+    assert _ip_is_public("2002:0808:0808::") is True        # 6to4 wrapping a PUBLIC IPv4 stays public
     import tempfile
     scratch_root = os.path.dirname(__file__)
     with tempfile.TemporaryDirectory(dir=scratch_root) as scratch:
         p = os.path.join(scratch, ".env")
         with open(p, "wb") as f:  # non-UTF-8 comment byte + a valid ASCII key line + parsing edges
             f.write(b"# cl\xe9 (non-utf8 comment)\nFAL_KEY=fromfile\nGEMINI_API_KEY=g  # inline\n"
-                    b"ELEVENLABS_API_KEY=\"quoted\"\nEMPTY=\n")
-        for k in ("FAL_KEY", "GEMINI_API_KEY", "ELEVENLABS_API_KEY", "EMPTY"):
+                    b"ELEVENLABS_API_KEY=\"quoted\"\nexport FIRECRAWL_API_KEY=exported\nEMPTY=\n")
+        for k in ("FAL_KEY", "GEMINI_API_KEY", "ELEVENLABS_API_KEY", "FIRECRAWL_API_KEY", "EMPTY"):
             os.environ.pop(k, None)
         os.environ["FAL_KEY"] = "realenv"             # a real env value must win over the file
         _load_key_file(p)
         assert os.environ["FAL_KEY"] == "realenv", "real env value must win"
         assert os.environ["GEMINI_API_KEY"] == "g", "inline comment stripped on unquoted value"
         assert os.environ["ELEVENLABS_API_KEY"] == "quoted", "surrounding quotes stripped"
+        assert os.environ["FIRECRAWL_API_KEY"] == "exported", "`export ` prefix stripped from the key"
         assert "EMPTY" not in os.environ, "empty value must not be set"
         os.environ["FAL_KEY"] = ""                     # empty (unset ${VAR:-}) must be filled
         _load_key_file(p)

@@ -1,66 +1,81 @@
 name: Release
 
-# Tag a release — the tag must match package.json "version". scripts/bump_version.py keeps every
-# manifest + uvx pin in sync from that one value; the assert below re-checks it before publishing.
-#   python3 scripts/bump_version.py X.Y.Z   then   git tag vX.Y.Z && git push origin vX.Y.Z
+# Auto-release on merge to main. The release is driven by package.json "version": when a merge lands a
+# version that has no matching git tag yet, the whole pipeline fires and publishes everywhere. Merges
+# that don't change the version (docs, chores) are no-ops — the gate sees the tag already exists and
+# skips, so main-pushes never try to republish the same version.
+#
+# Cut a release:  python3 scripts/bump_version.py X.Y.Z  ->  PR  ->  merge to main. That's it.
+# bump_version.py keeps every manifest + uvx pin in sync from that one value; the gate re-checks it.
+#
+# Ordering is deliberate: the vX.Y.Z tag is created LAST (finalize), only after PyPI + npm + the MCP
+# registry all publish. A failed surface therefore leaves the version UNTAGGED, so a plain re-push to
+# main retries it — and every publish is idempotent (skip if the version is already live), so the
+# siblings that already shipped are green no-ops on that retry.
 #
 # Jobs:
-#   release       — always: build the plugin bundle + GitHub Release (no external publish).
-#   pypi-publish  — publishes supercmo-skills to PyPI via OIDC Trusted Publishing (the uvx package
-#                   + the MCP-registry backing package). GATED by the `pypi` environment.
-#   npm-publish   — publishes @supercmo/skills to npm via OIDC Trusted Publishing. GATED by `npm`.
-#   mcp-registry  — registers server.json in the official MCP registry (needs the PyPI package live).
-#                   GATED by `mcp-registry`.
+#   gate          — decide whether package.json's version is new (untagged); green-light the rest.
+#   pypi-publish  — publish supercmo-skills to PyPI via OIDC Trusted Publishing (uvx + MCP backing pkg).
+#   npm-publish   — publish @supercmo/skills to npm via OIDC Trusted Publishing.
+#   mcp-registry  — register server.json in the official MCP registry (needs the PyPI package live).
+#   finalize      — build the plugin bundle + .mcpb, create the tag + GitHub Release (the "done" marker).
 #
-# THE GATE: the three publish jobs use protected GitHub Environments. Configure each environment with
-# required reviewers (the Final Launch Check approver) so a tag push PAUSES for approval instead of
-# publishing. A tag alone never publishes.
+# The publish jobs run in protected GitHub Environments (pypi/npm/mcp-registry) — required because the
+# OIDC trusted publishers are bound to those environment names. Approval is OFF (no required reviewers)
+# so releases are hands-free; the version-change gate is what prevents accidental republishes.
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
 
 permissions: {}
 
+concurrency:
+  group: release
+  cancel-in-progress: false   # serialize releases; never cancel a half-published run
+
 jobs:
-  release:
+  gate:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # create the GitHub Release + upload the asset
+      contents: read
+    outputs:
+      version: ${{ steps.decide.outputs.version }}
+      release: ${{ steps.decide.outputs.release }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Assert tag matches package.json + every manifest version + uvx pin
-        run: python3 scripts/bump_version.py --check --tag "$GITHUB_REF_NAME"
-      - name: Build plugin bundle
+          fetch-depth: 0   # need the full tag list to tell whether this version was already released
+      - name: Decide whether package.json's version is a new release
+        id: decide
         run: |
-          python3 -m pip install --quiet pyyaml
-          python3 scripts/package_plugins.py
-      - name: Build .mcpb bundle (Smithery / Claude Desktop)
-        run: npx --yes @anthropic-ai/mcpb@latest pack mcpb dist/supercmo.mcpb
-      - name: Publish GitHub Release (idempotent)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # A pre-launch re-seed force-pushes the same tag, re-triggering this job. Create the release
-          # the first time; on a re-run the release already exists, so just refresh the assets
-          # instead of failing on "a release with the same tag name already exists".
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/supercmo-plugin.zip dist/supercmo.mcpb --clobber
+          VERSION=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
+          # This value flows into shell args + GITHUB_OUTPUT downstream, so reject anything but clean
+          # semver (blocks control chars / shell metacharacters — GHA output/expression injection).
+          # re.fullmatch anchors the WHOLE string, so an embedded newline fails too.
+          python3 -c "import re,sys; sys.exit(0 if re.fullmatch(r'\d+\.\d+\.\d+([-.+][0-9A-Za-z.]+)?', sys.argv[1]) else 1)" "$VERSION" \
+            || { echo "::error::package.json version is not clean semver: $VERSION"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$VERSION is already tagged — nothing to release."
           else
-            gh release create "$GITHUB_REF_NAME" dist/supercmo-plugin.zip dist/supercmo.mcpb --generate-notes
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$VERSION is new — releasing to all surfaces."
           fi
+      - name: Verify every manifest + uvx pin matches package.json
+        if: steps.decide.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.decide.outputs.version }}   # via env, not interpolated into the run script
+        run: python3 scripts/bump_version.py --check --tag "v$VERSION"
 
   pypi-publish:
-    needs: release
+    needs: gate
+    if: needs.gate.outputs.release == 'true'
     runs-on: ubuntu-latest
-    environment: pypi   # protect with required reviewers = the Final Launch Check gate
+    environment: pypi   # OIDC trusted publisher is bound to this environment name
     permissions:
+      contents: read
       id-token: write   # OIDC Trusted Publishing — no token stored
     steps:
       - uses: actions/checkout@v4
@@ -73,36 +88,103 @@ jobs:
           python3 -m build
       - name: Publish to PyPI (OIDC)
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true   # already-live version -> green no-op (retry-safe)
 
   npm-publish:
-    needs: release
+    needs: gate
+    if: needs.gate.outputs.release == 'true'
     runs-on: ubuntu-latest
-    environment: npm   # protect with required reviewers = the Final Launch Check gate
+    environment: npm   # OIDC trusted publisher is bound to this environment name
     permissions:
       contents: read
       id-token: write   # OIDC Trusted Publishing — provenance auto-attached, no token
+    env:
+      VERSION: ${{ needs.gate.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"   # Active LTS; npm 12 needs Node >= 22.22.2 and Node 20 is EOL
           registry-url: "https://registry.npmjs.org"
-      - run: npm install -g npm@latest   # OIDC needs npm >= 11.5.1
-      - run: python3 -m pip install --quiet pyyaml   # prepublishOnly runs scripts/quick_validate.py
-      - run: npm publish --access public
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"   # prepublishOnly runs scripts/quick_validate.py (needs pyyaml)
+      - run: npm install -g npm@12.0.2   # pinned (OIDC needs npm >= 11.5.1); bump deliberately
+      - run: python3 -m pip install --quiet pyyaml
+      - name: Publish to npm (OIDC, idempotent)
+        run: |
+          if [ "$(npm view "@supercmo/skills@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then
+            echo "npm already has @supercmo/skills@$VERSION — skipping."
+          else
+            # A prerelease (semver core followed by `-…`, e.g. 1.2.3-rc.1) must NOT claim the default
+            # `latest` dist-tag; ship it under `next`. Stable versions publish to `latest` as before.
+            case "$VERSION" in
+              *-*) npm publish --access public --tag next ;;
+              *)   npm publish --access public ;;
+            esac
+          fi
 
   mcp-registry:
-    needs: pypi-publish   # the registry entry points at the PyPI package — it must be live first
+    needs: [gate, pypi-publish]   # registry entry points at the PyPI package — it must be live first
     runs-on: ubuntu-latest
     environment: mcp-registry
     permissions:
+      contents: read
       id-token: write   # `mcp-publisher login github-oidc`
+    env:
+      VERSION: ${{ needs.gate.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - name: Install mcp-publisher
+        # Pinned release + verified checksum — this binary logs in via OIDC and publishes to the
+        # registry, so download it to disk, verify sha256, THEN extract (never pipe an unverified,
+        # possibly-error-page stream straight into tar). Bump the version + sha together, deliberately.
         run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
-      - name: Publish server.json to the MCP registry
+          curl -fsSL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz"
+          echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  mcp-publisher.tar.gz" | sha256sum -c -
+          tar xzf mcp-publisher.tar.gz mcp-publisher
+      - name: Publish server.json to the MCP registry (idempotent)
         run: |
-          ./mcp-publisher login github-oidc
-          ./mcp-publisher publish
+          IN_REGISTRY=$(curl -sf "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.SupercmoHQ/supercmo" \
+            | python3 -c "import sys,json,os; v=os.environ['VERSION']; d=json.load(sys.stdin); print(any(s['server'].get('name')=='io.github.SupercmoHQ/supercmo' and s['server'].get('version')==v for s in d.get('servers',[])))" 2>/dev/null || echo "False")
+          if [ "$IN_REGISTRY" = "True" ]; then
+            echo "MCP registry already has io.github.SupercmoHQ/supercmo@$VERSION — skipping."
+          else
+            ./mcp-publisher login github-oidc
+            ./mcp-publisher publish
+          fi
+
+  finalize:
+    needs: [gate, pypi-publish, npm-publish, mcp-registry]   # tag only after ALL surfaces published
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the tag + GitHub Release + upload assets
+    env:
+      TAG: v${{ needs.gate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false   # this job runs untrusted npx (mcpb) with contents:write; gh uses GH_TOKEN, not the git cred
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Build plugin bundle
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 scripts/package_plugins.py
+      - name: Build .mcpb bundle (Smithery / Claude Desktop)
+        run: npx --yes @anthropic-ai/mcpb@2.1.2 pack mcpb dist/supercmo.mcpb   # pinned; bump deliberately
+      - name: Tag + publish GitHub Release (idempotent on re-run)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/supercmo-plugin.zip dist/supercmo.mcpb --clobber
+          else
+            gh release create "$TAG" dist/supercmo-plugin.zip dist/supercmo.mcpb --generate-notes --target "$GITHUB_SHA"
+          fi

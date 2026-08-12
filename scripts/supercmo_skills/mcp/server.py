@@ -12,7 +12,7 @@ from . import tools  # noqa: F401 (registers tools on import)
 
 try:
     from supercmo_skills import telemetry  # anonymous, opt-out usage counts
-except Exception:  # telemetry is best-effort; never block the server on it
+except ImportError:  # only an absent module degrades; a bug inside telemetry must surface, not hide
     telemetry = None
 if telemetry is not None:
     try:
@@ -106,6 +106,10 @@ def main():
             msg = json.loads(line)
         except json.JSONDecodeError:
             sys.stdout.write(json.dumps(_error(None, -32700, "Parse error")) + "\n")
+            sys.stdout.flush()
+            continue
+        if not isinstance(msg, dict):  # valid JSON but not a JSON-RPC request object (scalar/array)
+            sys.stdout.write(json.dumps(_error(None, -32600, "Invalid Request")) + "\n")
             sys.stdout.flush()
             continue
         try:
