@@ -36,6 +36,7 @@ concurrency:
 
 jobs:
   gate:
+    if: github.repository == 'SupercmoHQ/superCMO-skills'
     runs-on: ubuntu-latest
     permissions:
       contents: read
