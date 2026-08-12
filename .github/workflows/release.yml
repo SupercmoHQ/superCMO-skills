@@ -1,17 +1,18 @@
 name: Release
 
-# Auto-release on merge to main. The release is driven by package.json "version": when a merge lands a
-# version that has no matching git tag yet, the whole pipeline fires and publishes everywhere. Merges
-# that don't change the version (docs, chores) are no-ops — the gate sees the tag already exists and
-# skips, so main-pushes never try to republish the same version.
+# Auto-release driven by package.json "version". A push to main that CHANGES package.json starts the
+# pipeline; the gate then publishes everywhere only when that version has no matching git tag yet.
+# Merges that don't touch package.json (docs, chores) never start a run at all; a package.json edit on
+# an already-released version starts a run the gate no-ops. One version bump = one release, hands-free.
 #
 # Cut a release:  python3 scripts/bump_version.py X.Y.Z  ->  PR  ->  merge to main. That's it.
 # bump_version.py keeps every manifest + uvx pin in sync from that one value; the gate re-checks it.
 #
 # Ordering is deliberate: the vX.Y.Z tag is created LAST (finalize), only after PyPI + npm + the MCP
-# registry all publish. A failed surface therefore leaves the version UNTAGGED, so a plain re-push to
-# main retries it — and every publish is idempotent (skip if the version is already live), so the
-# siblings that already shipped are green no-ops on that retry.
+# registry all publish. A failed surface therefore leaves the version UNTAGGED. Retry with the Actions
+# "Re-run failed jobs" button (same commit -> gate still sees it untagged -> re-fires) or run the
+# workflow manually (workflow_dispatch); every publish is idempotent (skip if the version is already
+# live), so the siblings that already shipped are green no-ops on that retry.
 #
 # Jobs:
 #   gate          — decide whether package.json's version is new (untagged); green-light the rest.
@@ -27,6 +28,8 @@ name: Release
 on:
   push:
     branches: [main]
+    paths: ['package.json']   # only a version-file change starts a run; docs/chore merges never do
+  workflow_dispatch: {}        # manual heal/retry for a stuck release — no new commit needed
 
 permissions: {}
 
