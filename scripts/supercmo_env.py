@@ -415,10 +415,15 @@ def proxy_job_status(job_id, timeout=60):
     transient: True} so a slow poll never turns a live job into a failure the caller would resubmit."""
     if not job_id:
         return {"ok": False, "error": "proxy job_id missing on the handle."}
+    jid = str(job_id)
+    # A bare "." / ".." segment escapes the /jobs path even after quoting (quote leaves dots as-is);
+    # reject those. An ordinary id keeps its "/" percent-encoded into a single segment (safe="").
+    if any(seg in (".", "..") for seg in jid.split("/")):
+        return {"ok": False, "error": "invalid proxy job_id."}
     key = supercmo_key()
     if not key:
         return {"ok": False, "error": "SUPERCMO_API_KEY missing — cannot poll the proxy job."}
-    url = f"{api_url()}{PROXY_BASE}/jobs/{urllib.parse.quote(str(job_id), safe='')}"
+    url = f"{api_url()}{PROXY_BASE}/jobs/{urllib.parse.quote(jid, safe='')}"
     # retries=1: the caller (_wait_for_job) owns the poll loop, so one unanswered GET must not stack
     # up 3×timeout of dead wait before it can sleep and re-poll.
     parsed, status, err = _request("GET", url, headers={"Authorization": f"Bearer {key}"},
@@ -595,6 +600,25 @@ def _selftest():
         _request = lambda *a, **k: ({"status": "completed", "result": {"ok": True}}, 200, None)  # no media
         empty = proxy_job_status("j")
         assert empty["ok"] is False and "no media" in empty["error"], empty
+
+        # job_id path safety: an ordinary id keeps "/" percent-encoded (one segment); a bare "."/".."
+        # segment is rejected before any request is made.
+        seen = {}
+
+        def _capture_url(method, url, **kwargs):
+            seen["url"] = url
+            return ({"status": "running"}, 200, None)
+
+        _request = _capture_url
+        assert proxy_job_status("a/b")["ok"] is True and seen["url"].endswith("/jobs/a%2Fb"), seen
+
+        def _forbidden(*a, **k):
+            raise AssertionError("must not request an invalid job_id")
+
+        _request = _forbidden
+        for _bad in ("..", ".", "../x", "a/../b"):
+            _r = proxy_job_status(_bad)
+            assert _r["ok"] is False and "invalid" in _r["error"], (_bad, _r)
     finally:
         _request = saved_request
         os.environ.pop("SUPERCMO_API_KEY", None)
