@@ -430,6 +430,8 @@ def _finalize(handle, status):
             res["seed"] = status.get("seed")
     if handle.get("duration_adjusted"):
         res["duration_adjusted"] = handle["duration_adjusted"]
+    if status.get("charge") is not None:   # managed per-call cost echo, same as the synchronous lane
+        res["charge"] = status["charge"]
     return _persist_media(res, handle.get("output_dir"), cap)
 
 

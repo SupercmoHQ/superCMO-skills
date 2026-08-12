@@ -34,6 +34,12 @@ import urllib.request
 DEFAULT_API_URL = "https://api.getsupercmo.ai"
 PROXY_BASE = "/api/v1/supercmo/proxy"
 ME_PATH = "/api/v1/supercmo/me"
+# Media capabilities this client asks the proxy to serve on the async job lane (returns a job_id to
+# poll at GET {PROXY_BASE}/jobs/{id}). Advertised so an older client that omits the header keeps the
+# synchronous lane — the proxy never hands a job_id to a client that can't poll it. Only `image` is
+# gated here: managed audio is synchronous (mirrors BYOK ElevenLabs), and video runs async via the
+# server's own SUPERCMO_ASYNC_VIDEO flag (unconditional, so it needs no client opt-in).
+ASYNC_POLL_CAPABILITIES = "image"
 RETRIES = 3
 BACKOFF = [1, 2, 4]
 
@@ -357,7 +363,7 @@ def proxy_request(capability, body, method="POST", call_id=None, timeout=120):
     key = supercmo_key()
     if not key:
         return {"ok": False, "error": "SUPERCMO_API_KEY missing — cannot use the metered proxy."}
-    headers = {"Authorization": f"Bearer {key}"}
+    headers = {"Authorization": f"Bearer {key}", "X-Supercmo-Async": ASYNC_POLL_CAPABILITIES}
     if method != "GET":
         body = dict(body or {})
         call_id = call_id or body.get("call_id")
@@ -403,31 +409,44 @@ def proxy_submit(capability, body, call_id=None, timeout=120):
 
 def proxy_job_status(job_id, timeout=60):
     """Poll an async proxy job at GET {PROXY_BASE}/jobs/<job_id>, normalizing the proxy's
-    {status, result} envelope to the client's shape: pending → {ok: True, done: False, state};
-    completed → {ok: True, done: True, <video|audio>, duration?}; else {ok: False, ...}. (The proxy
-    async backend is not live yet — this is the client-side contract; see the async TODO.)"""
+    {status, result} envelope to the client's shape — symmetric with the direct providers' *_status:
+    pending → {ok: True, done: False, state}; completed → {ok: True, done: True, <images|video|audio>,
+    seed?, duration?}; failed → {ok: False, error}. A network/timeout poll hiccup → {ok: False,
+    transient: True} so a slow poll never turns a live job into a failure the caller would resubmit."""
     if not job_id:
         return {"ok": False, "error": "proxy job_id missing on the handle."}
     key = supercmo_key()
     if not key:
         return {"ok": False, "error": "SUPERCMO_API_KEY missing — cannot poll the proxy job."}
     url = f"{api_url()}{PROXY_BASE}/jobs/{urllib.parse.quote(str(job_id))}"
-    parsed, status, err = _request("GET", url, headers={"Authorization": f"Bearer {key}"}, timeout=timeout)
+    # retries=1: the caller (_wait_for_job) owns the poll loop, so one unanswered GET must not stack
+    # up 3×timeout of dead wait before it can sleep and re-poll.
+    parsed, status, err = _request("GET", url, headers={"Authorization": f"Bearer {key}"},
+                                   timeout=timeout, retries=1)
     if parsed is None:
-        return {"ok": False, "error": f"proxy job status failed ({status})", "detail": err}
+        # A retryable status (network/timeout/5xx/429) is a transient poll hiccup — keep polling; a
+        # terminal status (404 gone, 401/403 rejected) really failed.
+        return {"ok": False, "transient": retryable_status(status),
+                "error": f"proxy job status failed ({status})", "detail": err}
     state = parsed.get("status")
     if state in ("IN_QUEUE", "IN_PROGRESS", "PENDING", "pending", "queued", "running"):
         return {"ok": True, "done": False, "state": state}
-    result = parsed.get("result") or parsed
-    if not isinstance(result, dict):
-        return {"ok": False, "error": f"proxy job state: {state}", "detail": json.dumps(parsed)[:500]}
-    if result.get("video") or result.get("audio"):
+    if state in ("completed", "COMPLETED", "succeeded", "SUCCEEDED"):
+        result = parsed.get("result")
+        if not isinstance(result, dict):
+            return {"ok": False, "error": "proxy job completed without a result",
+                    "detail": json.dumps(parsed)[:500]}
+        # Forward every media key _finalize reads, so a proxy handle finishes exactly like a
+        # direct-provider one (image = images/seed, video = video/duration, audio = audio) — plus the
+        # managed per-call cost echo (`charge`) the sync lane already returns.
         out = {"ok": True, "done": True}
-        for k in ("video", "audio", "duration"):
+        for k in ("images", "video", "audio", "seed", "duration", "charge"):
             if result.get(k) is not None:
                 out[k] = result[k]
         return out
-    return {"ok": False, "error": f"proxy job state: {state}", "detail": json.dumps(parsed)[:500]}
+    # failed / unknown terminal state
+    return {"ok": False, "error": parsed.get("error") or f"proxy job state: {state}",
+            "detail": json.dumps(parsed)[:500]}
 
 
 def proxy_spec(capability, body):
@@ -543,6 +562,35 @@ def _selftest():
         assert status == 409 and len(attempts) == 1
     finally:
         urllib.request.urlopen, time.sleep = real_urlopen, real_sleep
+
+    # proxy_job_status normalization — a proxy handle must finish exactly like a direct-provider one
+    # (image = images/seed, video = video/duration), pending stays pending, failed surfaces the error,
+    # and a transient poll hiccup keeps the job alive instead of failing it.
+    saved_request = _request
+    os.environ["SUPERCMO_API_KEY"] = "managed"
+    try:
+        _request = lambda *a, **k: ({"status": "running"}, 200, None)
+        assert proxy_job_status("j") == {"ok": True, "done": False, "state": "running"}
+        _request = lambda *a, **k: ({"status": "completed",
+                                     "result": {"ok": True, "images": [{"url": "u"}], "seed": 7,
+                                                "charge": {"credits": 2, "balance": 8}}}, 200, None)
+        assert proxy_job_status("j") == {"ok": True, "done": True, "images": [{"url": "u"}], "seed": 7,
+                                         "charge": {"credits": 2, "balance": 8}}
+        _request = lambda *a, **k: ({"status": "completed",
+                                     "result": {"ok": True, "video": {"url": "v"}, "duration": 5}}, 200, None)
+        assert proxy_job_status("j") == {"ok": True, "done": True, "video": {"url": "v"}, "duration": 5}
+        _request = lambda *a, **k: ({"status": "failed", "error": "vendor boom"}, 200, None)
+        failed = proxy_job_status("j")
+        assert failed["ok"] is False and failed["error"] == "vendor boom", failed
+        _request = lambda *a, **k: (None, 503, "upstream")          # retryable → transient, keep polling
+        transient = proxy_job_status("j")
+        assert transient["ok"] is False and transient["transient"] is True, transient
+        _request = lambda *a, **k: (None, 404, "gone")              # terminal → not transient
+        terminal = proxy_job_status("j")
+        assert terminal["ok"] is False and terminal["transient"] is False, terminal
+    finally:
+        _request = saved_request
+        os.environ.pop("SUPERCMO_API_KEY", None)
     print("supercmo_env selftest: OK")
 
 

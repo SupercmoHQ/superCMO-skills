@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Open, model-agnostic, BYO-keys marketing skills for AI agents",
-    "version": "0.1.10",
+    "version": "0.1.11",
     "repository": "https://github.com/SupercmoHQ/superCMO-skills"
   },
   "plugins": [
