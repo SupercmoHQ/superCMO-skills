@@ -407,6 +407,7 @@ def _poll_once(handle):
     if provider is None:
         return {"ok": False, "error": "invalid job handle",
                 "hint": f"unknown provider {handle.get('provider')!r} on this job handle."}
+    supercmo_env.reload_keys()               # late-bind the vendor key, as the managed rejoin path does
     key = os.environ.get(provider.BYOK_ENV)
     if not key:                              # the job belongs to whichever vendor submitted it, so
         return {"ok": False, "error": "no_provider_configured",     # only THAT key can rejoin it
@@ -421,7 +422,8 @@ def _finalize(handle, status):
     res = {"ok": True, "model": handle.get("model")}
     if cap == "video":
         res["video"] = status.get("video")
-        res["duration"] = status.get("duration")
+        res["duration"] = (status.get("duration") if status.get("duration") is not None
+                           else handle.get("requested_duration"))
     elif cap == "audio":
         res["audio"] = status.get("audio")
     elif cap == "image":
@@ -477,6 +479,10 @@ def _submit_or_run(capability, model, inp, kind, provider, route, output_dir, wa
         return _persist_media(sub, output_dir, capability)
     handle = _make_handle(capability, model, kind, sub, output_dir, adjusted,
                           provider_name=(route or {}).get("provider"))
+    if capability == "video" and inp.get("duration") is not None:
+        # BYOK video_status reports no duration; carry the requested value so a rejoin reports the
+        # same duration the managed lane already does.
+        handle["requested_duration"] = inp["duration"]
     return handle if not wait else _wait_for_job(handle, deadline_s)
 
 

@@ -418,7 +418,7 @@ def proxy_job_status(job_id, timeout=60):
     key = supercmo_key()
     if not key:
         return {"ok": False, "error": "SUPERCMO_API_KEY missing — cannot poll the proxy job."}
-    url = f"{api_url()}{PROXY_BASE}/jobs/{urllib.parse.quote(str(job_id))}"
+    url = f"{api_url()}{PROXY_BASE}/jobs/{urllib.parse.quote(str(job_id), safe='')}"
     # retries=1: the caller (_wait_for_job) owns the poll loop, so one unanswered GET must not stack
     # up 3×timeout of dead wait before it can sleep and re-poll.
     parsed, status, err = _request("GET", url, headers={"Authorization": f"Bearer {key}"},
@@ -443,6 +443,10 @@ def proxy_job_status(job_id, timeout=60):
         for k in ("images", "video", "audio", "seed", "duration", "charge"):
             if result.get(k) is not None:
                 out[k] = result[k]
+        if not any(k in out for k in ("images", "video", "audio")):
+            # a completed job with no media is a failure, same as the direct providers' *_status
+            return {"ok": False, "error": "proxy job completed with no media",
+                    "detail": json.dumps(parsed)[:500]}
         return out
     # failed / unknown terminal state
     return {"ok": False, "error": parsed.get("error") or f"proxy job state: {state}",
@@ -588,6 +592,9 @@ def _selftest():
         _request = lambda *a, **k: (None, 404, "gone")              # terminal → not transient
         terminal = proxy_job_status("j")
         assert terminal["ok"] is False and terminal["transient"] is False, terminal
+        _request = lambda *a, **k: ({"status": "completed", "result": {"ok": True}}, 200, None)  # no media
+        empty = proxy_job_status("j")
+        assert empty["ok"] is False and "no media" in empty["error"], empty
     finally:
         _request = saved_request
         os.environ.pop("SUPERCMO_API_KEY", None)

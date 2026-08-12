@@ -317,7 +317,7 @@ function runInstall(hosts, opts) {
   for (const [env, cap, url] of KEY_GUIDE)
     console.log(`      ${env.padEnd(19)}  ${cap.padEnd(37)}  ${url}`);
   console.log(
-    `      Start with FAL_KEY (covers image + video). Put keys in ${kf.file}.`,
+    `      Start with WAVESPEED_API_KEY (covers image + video). Put keys in ${kf.file}.`,
   );
   console.log("");
   console.log(
