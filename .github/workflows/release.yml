@@ -50,6 +50,11 @@ jobs:
         id: decide
         run: |
           VERSION=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
+          # This value flows into shell args + GITHUB_OUTPUT downstream, so reject anything but clean
+          # semver (blocks control chars / shell metacharacters — GHA output/expression injection).
+          # re.fullmatch anchors the WHOLE string, so an embedded newline fails too.
+          python3 -c "import re,sys; sys.exit(0 if re.fullmatch(r'\d+\.\d+\.\d+([-.+][0-9A-Za-z.]+)?', sys.argv[1]) else 1)" "$VERSION" \
+            || { echo "::error::package.json version is not clean semver: $VERSION"; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
             echo "release=false" >> "$GITHUB_OUTPUT"
@@ -60,7 +65,9 @@ jobs:
           fi
       - name: Verify every manifest + uvx pin matches package.json
         if: steps.decide.outputs.release == 'true'
-        run: python3 scripts/bump_version.py --check --tag "v${{ steps.decide.outputs.version }}"
+        env:
+          VERSION: ${{ steps.decide.outputs.version }}   # via env, not interpolated into the run script
+        run: python3 scripts/bump_version.py --check --tag "v$VERSION"
 
   pypi-publish:
     needs: gate
@@ -98,12 +105,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "24"   # Active LTS; npm@latest (v12) needs Node >= 22.22.2 and Node 20 is EOL
+          node-version: "24"   # Active LTS; npm 12 needs Node >= 22.22.2 and Node 20 is EOL
           registry-url: "https://registry.npmjs.org"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"   # prepublishOnly runs scripts/quick_validate.py (needs pyyaml)
-      - run: npm install -g npm@latest   # OIDC needs npm >= 11.5.1
+      - run: npm install -g npm@12.0.2   # pinned (OIDC needs npm >= 11.5.1); bump deliberately
       - run: python3 -m pip install --quiet pyyaml
       - name: Publish to npm (OIDC, idempotent)
         run: |
@@ -125,12 +132,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install mcp-publisher
+        # Pinned release + verified checksum — this binary logs in via OIDC and publishes to the
+        # registry, so download it to disk, verify sha256, THEN extract (never pipe an unverified,
+        # possibly-error-page stream straight into tar). Bump the version + sha together, deliberately.
         run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          curl -fsSL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz"
+          echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  mcp-publisher.tar.gz" | sha256sum -c -
+          tar xzf mcp-publisher.tar.gz mcp-publisher
       - name: Publish server.json to the MCP registry (idempotent)
         run: |
           IN_REGISTRY=$(curl -sf "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.SupercmoHQ/supercmo" \
-            | python3 -c "import sys,json; d=json.load(sys.stdin); print(any(s['server'].get('name')=='io.github.SupercmoHQ/supercmo' and s['server'].get('version')=='$VERSION' for s in d.get('servers',[])))" 2>/dev/null || echo "False")
+            | python3 -c "import sys,json,os; v=os.environ['VERSION']; d=json.load(sys.stdin); print(any(s['server'].get('name')=='io.github.SupercmoHQ/supercmo' and s['server'].get('version')==v for s in d.get('servers',[])))" 2>/dev/null || echo "False")
           if [ "$IN_REGISTRY" = "True" ]; then
             echo "MCP registry already has io.github.SupercmoHQ/supercmo@$VERSION — skipping."
           else
@@ -147,6 +160,8 @@ jobs:
       TAG: v${{ needs.gate.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false   # this job runs untrusted npx (mcpb) with contents:write; gh uses GH_TOKEN, not the git cred
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -158,7 +173,7 @@ jobs:
           python3 -m pip install --quiet pyyaml
           python3 scripts/package_plugins.py
       - name: Build .mcpb bundle (Smithery / Claude Desktop)
-        run: npx --yes @anthropic-ai/mcpb@latest pack mcpb dist/supercmo.mcpb
+        run: npx --yes @anthropic-ai/mcpb@2.1.2 pack mcpb dist/supercmo.mcpb   # pinned; bump deliberately
       - name: Tag + publish GitHub Release (idempotent on re-run)
         env:
           GH_TOKEN: ${{ github.token }}
