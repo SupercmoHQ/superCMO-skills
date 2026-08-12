@@ -300,6 +300,8 @@ def safe_download(url, dest, timeout=60, max_bytes=_SSRF_MAX_BYTES, _redirects=3
                     raise ValueError("download exceeds size cap")
                 f.write(chunk)
         return dest
+    except (OSError, http.client.HTTPException) as e:   # timeout / conn reset / TLS / truncated response
+        raise ValueError(f"download failed: {type(e).__name__}: {e}") from e
     finally:
         conn.close()
 
@@ -341,6 +343,8 @@ def safe_fetch_bytes(url, timeout=60, max_bytes=_SSRF_MAX_BYTES, _redirects=3):
             if len(data) > max_bytes:
                 raise ValueError("fetch exceeds size cap")
         return bytes(data), resp.headers.get("Content-Type", "")
+    except (OSError, http.client.HTTPException) as e:   # timeout / conn reset / TLS / truncated response
+        raise ValueError(f"fetch failed: {type(e).__name__}: {e}") from e
     finally:
         conn.close()
 

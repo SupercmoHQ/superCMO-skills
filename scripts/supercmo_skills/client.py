@@ -10,7 +10,6 @@ list leads with wavespeed and falls back to fal for image/video), else the manag
 is model-aware, provider-blind.
 """
 import base64
-import http.client
 import os
 import time
 import uuid
@@ -317,9 +316,7 @@ def _media_bytes(item):
             try:
                 data, ctype = supercmo_env.safe_fetch_bytes(url, timeout=_MEDIA_DL_TIMEOUT)
                 break
-            # ValueError = policy (blocked IP / bad status / oversize); OSError = timeout / conn reset
-            # / TLS; HTTPException = truncated response — the transient CDN failures the retry is for.
-            except (ValueError, OSError, http.client.HTTPException) as e:
+            except ValueError as e:   # safe_fetch_bytes normalizes every failure (policy + network) to ValueError
                 supercmo_env.dbg(f"media download attempt {attempt + 1}/{_MEDIA_DL_RETRIES} failed: {e}")
         supercmo_env.dbg(f"media download {'ok' if data else 'FAILED'} "
                          f"({len(data) if data else 0}B, {time.time() - t0:.1f}s) {url[:80]}")
