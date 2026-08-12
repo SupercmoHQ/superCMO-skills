@@ -117,7 +117,12 @@ jobs:
           if [ "$(npm view "@supercmo/skills@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then
             echo "npm already has @supercmo/skills@$VERSION — skipping."
           else
-            npm publish --access public
+            # A prerelease (semver core followed by `-…`, e.g. 1.2.3-rc.1) must NOT claim the default
+            # `latest` dist-tag; ship it under `next`. Stable versions publish to `latest` as before.
+            case "$VERSION" in
+              *-*) npm publish --access public --tag next ;;
+              *)   npm publish --access public ;;
+            esac
           fi
 
   mcp-registry:
