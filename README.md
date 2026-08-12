@@ -165,6 +165,8 @@ npx --yes github:SupercmoHQ/superCMO-skills --codex                # Codex
 npx --yes github:SupercmoHQ/superCMO-skills --all                  # every detected host
 ```
 
+If the SuperCMO tools don't show up in your agent afterward, restart it once.
+
 **Claude Code plugin** - an alternative to `npx … --claude` (use one, not both): the whole repo installs as one plugin, managed by Claude Code:
 
 ```
@@ -211,7 +213,7 @@ Opens SuperCMO in your browser to **sign in and authorize this device**; the key
 Bring your own vendor keys — requests go **directly to the model vendor; nothing routes through SuperCMO**.
 
 **One file, every host.** The installer creates `~/.supercmo/.env`; the MCP server loads your keys from
-there on any host (Claude Code, Cursor, Codex, …). Open it, add a key, restart your host:
+there on any host (Claude Code, Cursor, Codex, …). Open it and add a key:
 
 ```bash
 # ~/.supercmo/.env

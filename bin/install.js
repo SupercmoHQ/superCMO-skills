@@ -275,6 +275,8 @@ function runInstall(hosts, opts) {
     }
   }
   console.log("");
+  console.log("If the SuperCMO tools don't show up, restart your agent.");
+  console.log("");
   console.log("Next — set up a key. Two ways, pick one:");
   console.log("");
   console.log("  Option A · Managed (one command) — generate on SuperCMO's keys, pay per use:");
@@ -287,11 +289,11 @@ function runInstall(hosts, opts) {
   );
   console.log("");
   console.log(
-    "  Option B · Bring your own keys (free) — add a vendor key, then RESTART your host:",
+    "  Option B · Bring your own keys (free) — add a vendor key:",
   );
-  // Each BYOK key → what it unlocks. WAVESPEED or FAL drives image_generate + video_generate (either
-  // one serves every model; WaveSpeed is the recommended default); GEMINI drives image_analysis +
-  // video_analysis (used across the product, image and video skills); ELEVENLABS drives audio;
+  // Each BYOK key → what it unlocks. WAVESPEED or FAL drives image + video generation (either
+  // one serves every model; WaveSpeed is the recommended default); GEMINI drives image + video
+  // analysis (used across the product, image and video skills); ELEVENLABS drives audio;
   // FIRECRAWL drives url_extraction. Ordered by how much each one gives you.
   const KEY_GUIDE = [
     ["WAVESPEED_API_KEY", "generate images + video (recommended)", "https://wavespeed.ai/dashboard"],
@@ -315,7 +317,7 @@ function runInstall(hosts, opts) {
   for (const [env, cap, url] of KEY_GUIDE)
     console.log(`      ${env.padEnd(19)}  ${cap.padEnd(37)}  ${url}`);
   console.log(
-    `      Start with FAL_KEY (covers image + video). Put keys in ${kf.file}; they load after a restart.`,
+    `      Start with FAL_KEY (covers image + video). Put keys in ${kf.file}.`,
   );
   console.log("");
   console.log(
