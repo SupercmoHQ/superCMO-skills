@@ -19,10 +19,12 @@ CLI:
   supercmo_env.py --dry-run   # no network calls — prints a notice
 """
 import http.client
+import importlib.metadata
 import io
 import ipaddress
 import json
 import os
+import random
 import socket
 import ssl
 import sys
@@ -43,12 +45,22 @@ ASYNC_POLL_CAPABILITIES = "image"
 RETRIES = 3
 BACKOFF = [1, 2, 4]
 
+# --- key file: ~/.supercmo/.env -> os.environ (hot-reloaded) ------------------------------------
 KEY_FILE = os.path.join(os.path.expanduser("~"), ".supercmo", ".env")
 
 
 def _load_key_file(path=KEY_FILE):
     """Load `~/.supercmo/.env` (KEY=VALUE, `#` comments, stdlib-only) into os.environ. A real env
-    value wins; the file fills only empty/unset vars. Silent no-op if the file is missing/unreadable."""
+    value wins; the file fills only empty/unset vars. Silent no-op if the file is missing/unreadable.
+
+    First scrubs unexpanded host placeholders: Claude Code passes an unset ``${VAR}`` (no :-default)
+    through VERBATIM, so ``FAL_KEY=${FAL_KEY}`` lands in the env as a junk literal that every raw
+    os.environ read downstream (provider is_available, readiness) would treat as a real key and
+    then 401 at the vendor. Deleting it here — the one layer every lookup flows through — makes the
+    var honestly unset everywhere and lets the file fill it."""
+    for k, v in list(os.environ.items()):
+        if v == "${" + k + "}":   # ponytail: only the self-referential shape; a ${OTHER_NAME} ref
+            del os.environ[k]     # still passes — extend if a host ever emits that
     try:
         # errors="replace": a stray non-UTF-8 byte (e.g. an accented char in a comment, a smart quote
         # saved as Latin-1) must never crash startup or block the ASCII key lines — decode leniently
@@ -78,11 +90,12 @@ def reload_keys():
     """Re-read ~/.supercmo/.env into os.environ. Idempotent — fills only empty/unset vars and a real
     env value (e.g. a shell export) still wins — so it's called at every key lookup: a key added to
     the file AFTER the server started is picked up on the next tool call, no host restart needed.
-    (Standard late-binding of file credentials, like boto3/gcloud/kubectl re-resolving their cred
-    files; the file read is ~1ms, dwarfed by the vendor call it precedes.)"""
+    (The file read is ~1ms, dwarfed by the vendor call it precedes; the MCP server is a
+    single-threaded stdio loop, so the per-lookup env writes cannot race.)"""
     _load_key_file()
 
 
+# --- diagnostics + user agents -------------------------------------------------------------------
 def dbg(msg):
     """Low-volume diagnostic line to stderr (→ the host's mcp-stderr.log). stdout is the
     JSON-RPC channel, so diagnostics MUST go to stderr. Gated by SUPERCMO_DEBUG (default on)
@@ -93,11 +106,24 @@ def dbg(msg):
             sys.stderr.flush()
         except Exception:
             pass
+
+
 # Some CDNs/edges reject urllib's default "Python-urllib/x.y" User-Agent with a 403; a
-# browser-like UA avoids those false rejections. Callers may override via a User-Agent in `headers`.
+# browser-like UA avoids those false rejections on MEDIA fetches (safe_download/safe_fetch_bytes
+# only). Callers may override via a User-Agent in `headers`.
 _USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
+# First-party API calls identify with a product token (RFC 9110) — a spoofed browser UA can RAISE
+# bot scores under TLS-fingerprint cross-checks, and a named client can be allowlisted by vendors.
+try:
+    _API_USER_AGENT = (f"supercmo-skills/{importlib.metadata.version('supercmo-skills')} "
+                       "(+https://getsupercmo.ai)")
+except Exception:   # running from a checkout, not an installed wheel
+    _API_USER_AGENT = "supercmo-skills/dev (+https://getsupercmo.ai)"
+
+
+# --- routing: BYOK direct vs the managed metered proxy -------------------------------------------
 def api_url():
     return (os.environ.get("SUPERCMO_API_URL") or DEFAULT_API_URL).rstrip("/")
 
@@ -125,7 +151,8 @@ def resolve_vendor_route(*byok_vars):
     return "none", hint
 
 
-_RETRY_AFTER_MAX = 30    # seconds: a rate-limit hint we'll honour; beyond this our own backoff wins,
+# --- HTTP client: JSON/raw requests with bounded retries -----------------------------------------
+_RETRY_AFTER_MAX = 60    # seconds: a rate-limit hint we'll honour; beyond this our own backoff wins,
                          # so one absurd header can't park a tool call for minutes
 
 
@@ -140,16 +167,20 @@ def _retry_delay(attempt, err):
         wait = None
     if wait is not None and 0 <= wait <= _RETRY_AFTER_MAX:
         return wait
-    return BACKOFF[min(attempt, len(BACKOFF) - 1)]
+    # jitter desynchronizes concurrent clients retrying against the same rate-limited endpoint
+    return BACKOFF[min(attempt, len(BACKOFF) - 1)] * random.uniform(0.5, 1.5)
 
 
 def retryable_status(code):
     """Whether an HTTP status is worth another identical attempt. No code at all means the network
-    failed; a 5xx is the server wobbling; 408 and 429 explicitly say try again. Every other 4xx is
-    the request itself being wrong, so resending it unchanged can only fail the same way."""
+    failed; a 5xx is the server OR an intermediary wobbling (Cloudflare fronts both the managed
+    proxy and fal, and emits 52x on transient origin trouble — those must stay retryable, and this
+    predicate doubles as the poll classifier that keeps live paid jobs alive); 408 and 429
+    explicitly say try again. 501/505 are permanent, and every other 4xx is the request itself
+    being wrong, so resending those unchanged can only fail the same way."""
     if code is None:
         return True
-    return code >= 500 or code in (408, 429)
+    return code in (408, 429) or (code >= 500 and code not in (501, 505))
 
 
 def _request(method, url, body=None, headers=None, timeout=120, retries=None):
@@ -157,7 +188,7 @@ def _request(method, url, body=None, headers=None, timeout=120, retries=None):
     default — pass 1 for a status poll so a single unanswered request can't stack up 3×timeout of
     dead wait inside one call (the caller paces its own retry loop)."""
     data = json.dumps(body).encode("utf-8") if body is not None else None
-    hdrs = {"Content-Type": "application/json", "User-Agent": _USER_AGENT, **(headers or {})}
+    hdrs = {"Content-Type": "application/json", "User-Agent": _API_USER_AGENT, **(headers or {})}
     last_err, last_status, last_http = None, None, None
     attempts = RETRIES if retries is None else max(1, retries)
     for attempt in range(attempts):
@@ -188,12 +219,12 @@ def _request_raw(method, url, body=None, headers=None, timeout=120, retries=None
     upload PUT to vendor storage) instead of a JSON body — this keeps binary uploads on the seam."""
     if raw_body is not None:
         data = raw_body
-        hdrs = {"User-Agent": _USER_AGENT, **(headers or {})}
+        hdrs = {"User-Agent": _API_USER_AGENT, **(headers or {})}
         if content_type:
             hdrs["Content-Type"] = content_type
     else:
         data = json.dumps(body).encode("utf-8") if body is not None else None
-        hdrs = {"Content-Type": "application/json", "User-Agent": _USER_AGENT, **(headers or {})}
+        hdrs = {"Content-Type": "application/json", "User-Agent": _API_USER_AGENT, **(headers or {})}
     last_err, last_status, last_http = None, None, None
     attempts = RETRIES if retries is None else max(1, retries)
     for attempt in range(attempts):
@@ -225,6 +256,8 @@ def _ip_is_public(ip_str):
     if a.version == 6:
         # An IPv6 address can EMBED an IPv4 one (::ffff:x mapped, or 2002:x::/16 6to4). Validate the
         # embedded IPv4, else e.g. 2002:a9fe:a9fe:: reaches 169.254.169.254 (cloud metadata) as "global".
+        # NAT64 (64:ff9b::/96 incl. the RFC 8215 local-use prefix) needs no unwrap: it sits inside
+        # ::/8, which is_reserved already rejects wholesale — asserted in _selftest.
         embedded = a.ipv4_mapped or a.sixtofour
         if embedded is not None:
             a = embedded
@@ -355,6 +388,7 @@ def safe_fetch_bytes(url, timeout=60, max_bytes=_SSRF_MAX_BYTES, _redirects=3):
         conn.close()
 
 
+# --- managed metered-proxy client ----------------------------------------------------------------
 def proxy_request(capability, body, method="POST", call_id=None, timeout=120):
     """Call the metered proxy. Returns the parsed response dict, or a
     structured {'ok': False, ...} error the caller can print and exit on.
@@ -468,6 +502,7 @@ def proxy_spec(capability, body):
     }
 
 
+# --- selftest + CLI -------------------------------------------------------------------------------
 def _selftest():
     """Assert the SSRF IP classifier, key-file loading and the managed-proxy error/idempotency contract."""
     global _request
@@ -480,6 +515,10 @@ def _selftest():
     assert _ip_is_public("::ffff:10.0.0.1") is False        # ipv4-mapped -> 10.0.0.1
     assert _ip_is_public("2606:4700:4700::1111") is True    # real public IPv6 (Cloudflare)
     assert _ip_is_public("2002:0808:0808::") is True        # 6to4 wrapping a PUBLIC IPv4 stays public
+    assert _ip_is_public("64:ff9b::a9fe:a9fe") is False     # NAT64-wrapped metadata: reserved-blocked
+    assert _ip_is_public("64:ff9b::7f00:1") is False        # NAT64-wrapped loopback: reserved-blocked
+    assert _ip_is_public("64:ff9b::808:808") is False       # the ENTIRE NAT64 range is blocked (::/8)
+    assert _ip_is_public("64:ff9b:1::1") is False           # RFC 8215 local-use prefix: reserved-blocked
     import tempfile
     scratch_root = os.path.dirname(__file__)
     with tempfile.TemporaryDirectory(dir=scratch_root) as scratch:
@@ -499,7 +538,22 @@ def _selftest():
         os.environ["FAL_KEY"] = ""                     # empty (unset ${VAR:-}) must be filled
         _load_key_file(p)
         assert os.environ["FAL_KEY"] == "fromfile", "empty/unset var filled from the file"
+        os.environ["FAL_KEY"] = "${FAL_KEY}"           # unexpanded host placeholder must not mask the file
+        _load_key_file(p)
+        assert os.environ["FAL_KEY"] == "fromfile", "placeholder scrubbed, then filled from the file"
+        os.environ["WAVESPEED_API_KEY"] = "${WAVESPEED_API_KEY}"   # placeholder with NO file entry
+        _load_key_file(p)
+        assert "WAVESPEED_API_KEY" not in os.environ, "placeholder scrubbed even without a file value"
         _load_key_file(os.path.join(p, "does-not-exist"))  # missing file: no-op, must not raise
+
+    # Retry classification + delay: 5xx transient (incl. Cloudflare 52x) except permanent 501/505,
+    # jittered fallback, honoured Retry-After.
+    assert retryable_status(None) and retryable_status(408) and retryable_status(429)
+    assert all(retryable_status(c) for c in (500, 502, 503, 504, 520, 522, 599))
+    assert not retryable_status(501) and not retryable_status(505) and not retryable_status(400)
+    assert 0.5 <= _retry_delay(0, None) <= 1.5               # jittered base backoff
+    assert _retry_delay(0, type("_RA", (), {"headers": {"Retry-After": "45"}})()) == 45.0
+    assert 1.0 <= _retry_delay(1, type("_RA", (), {"headers": {"Retry-After": "999"}})()) <= 3.0  # absurd hint -> backoff
 
     real_request = _request
     os.environ["SUPERCMO_API_KEY"] = "managed"
@@ -544,6 +598,7 @@ def _selftest():
     try:
         def retry_once(req, timeout=None):
             bodies.append(req.data)
+            assert req.get_header("User-agent", "").startswith("supercmo-skills/")
             if len(bodies) == 1:
                 raise urllib.error.URLError("lost response")
             return Response()
