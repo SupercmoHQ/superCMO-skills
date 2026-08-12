@@ -1,0 +1,121 @@
+name: Release PR
+
+# Every Wednesday (and on demand) open or refresh ONE standing PR that bumps the version and lists
+# every commit landed on main since the last release. MERGE it to release: the merge changes
+# package.json's version, which fires release.yml to publish to PyPI + npm + the MCP registry + a
+# GitHub Release + .mcpb. Nothing publishes until you merge — this only PREPARES the release, so you
+# never have to remember to cut one. No commits since the last release -> no PR is opened.
+#
+# Change the version level: re-run this workflow via "Run workflow" (patch/minor/major), or edit the
+# version on the release branch with `python3 scripts/bump_version.py X.Y.Z` before merging.
+#
+# Note: the PR is created with GITHUB_TOKEN, so `pull_request` CI (validate.yml) does not run on it —
+# fine, because it only changes version numbers, and release.yml re-checks version sync on merge.
+
+on:
+  schedule:
+    - cron: '30 3 * * 3'   # Wednesdays 03:30 UTC (09:00 IST). Adjust to taste.
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump level'
+        type: choice
+        default: patch
+        options: [patch, minor, major]
+
+permissions:
+  contents: write        # push the release branch
+  pull-requests: write   # open / refresh the release PR
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: true
+
+jobs:
+  release-pr:
+    if: github.repository == 'SupercmoHQ/superCMO-skills'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with:
+          fetch-depth: 0             # full history + tags, to diff since the last release
+          persist-credentials: false # don't leave GITHUB_TOKEN in .git/config; create-pull-request uses its own token
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97   # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Prepare version bump + changelog since the last release
+        id: prep
+        env:
+          BUMP: ${{ inputs.bump || 'patch' }}
+        run: |
+          set -euo pipefail
+          CURRENT=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
+
+          # release-pr auto-bumps a STABLE X.Y.Z base only; a prerelease/build version would break the
+          # arithmetic below and is not a valid weekly-release base (bump those manually).
+          if ! printf '%s' "$CURRENT" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::package.json version '$CURRENT' is not a stable X.Y.Z — release-pr only bumps stable versions; set a stable version or bump manually."
+            exit 1
+          fi
+
+          # Baseline = the tag for the current (last released) version. If v$CURRENT is missing but other
+          # releases exist, a prior release did not finish tagging — stop and tell the operator to
+          # complete it via release.yml rather than releasing on top of an unreleased version. Only the
+          # very first release (no v* tags at all) legitimately has no baseline.
+          LAST_TAG="v$CURRENT"
+          if ! git rev-parse -q --verify "refs/tags/$LAST_TAG" >/dev/null; then
+            if git tag --list 'v*' | grep -q .; then
+              echo "::error::package.json is $CURRENT but tag $LAST_TAG is missing — a previous release did not finish. Re-run release.yml to publish + tag v$CURRENT before opening a new release PR."
+              exit 1
+            fi
+            LAST_TAG=""   # no v* tags yet -> initial release; diff the whole history
+          fi
+          RANGE="${LAST_TAG:+$LAST_TAG..}HEAD"
+
+          COMMITS=$(git log --no-merges --pretty='- %s (%h)' "$RANGE")
+          if [ -z "$COMMITS" ]; then
+            echo "changes=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No commits since ${LAST_TAG:-repo start} — nothing to release, no PR opened."
+            exit 0
+          fi
+
+          # Next version = bump of the current version (strict X.Y.Z; releases are always stable).
+          IFS=. read -r MA MI PA <<< "$CURRENT"
+          case "$BUMP" in
+            major) MA=$((MA + 1)); MI=0; PA=0 ;;
+            minor) MI=$((MI + 1)); PA=0 ;;
+            *)     PA=$((PA + 1)) ;;
+          esac
+          NEXT="$MA.$MI.$PA"
+
+          python3 scripts/bump_version.py "$NEXT"   # single-source: fans NEXT across every manifest
+
+          {
+            echo "Automated release PR — **merge to publish \`v$NEXT\`** to PyPI + npm + the MCP registry + a GitHub Release + .mcpb."
+            echo
+            echo "Bumps \`$CURRENT\` → \`$NEXT\` (**$BUMP**) across every manifest via \`scripts/bump_version.py\`."
+            echo
+            echo "## Changes since ${LAST_TAG:-the start}"
+            echo
+            echo "$COMMITS"
+            echo
+            echo "---"
+            echo "- Merging changes package.json's version on main → \`release.yml\` publishes everywhere. Nothing ships until you merge."
+            echo "- Different bump? Re-run this workflow (patch/minor/major) or run \`python3 scripts/bump_version.py X.Y.Z\` on this branch, then merge."
+          } > "$RUNNER_TEMP/pr_body.md"
+
+          echo "changes=true" >> "$GITHUB_OUTPUT"
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+
+      - name: Open / refresh the release PR
+        if: steps.prep.outputs.changes == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1   # v8.1.1 (third-party -> SHA-pinned; Dependabot keeps it current)
+        with:
+          branch: automation/release-pr
+          base: main
+          title: "release: v${{ steps.prep.outputs.next }}"
+          body-path: ${{ runner.temp }}/pr_body.md
+          commit-message: "release: v${{ steps.prep.outputs.next }}"
+          labels: release
+          delete-branch: true
