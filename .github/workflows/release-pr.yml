@@ -51,10 +51,24 @@ jobs:
           set -euo pipefail
           CURRENT=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
 
-          # Baseline = the tag for the current (last released) version; fall back to the newest v* tag.
+          # release-pr auto-bumps a STABLE X.Y.Z base only; a prerelease/build version would break the
+          # arithmetic below and is not a valid weekly-release base (bump those manually).
+          if ! printf '%s' "$CURRENT" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::package.json version '$CURRENT' is not a stable X.Y.Z — release-pr only bumps stable versions; set a stable version or bump manually."
+            exit 1
+          fi
+
+          # Baseline = the tag for the current (last released) version. If v$CURRENT is missing but other
+          # releases exist, a prior release did not finish tagging — stop and tell the operator to
+          # complete it via release.yml rather than releasing on top of an unreleased version. Only the
+          # very first release (no v* tags at all) legitimately has no baseline.
           LAST_TAG="v$CURRENT"
           if ! git rev-parse -q --verify "refs/tags/$LAST_TAG" >/dev/null; then
-            LAST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1 || true)
+            if git tag --list 'v*' | grep -q .; then
+              echo "::error::package.json is $CURRENT but tag $LAST_TAG is missing — a previous release did not finish. Re-run release.yml to publish + tag v$CURRENT before opening a new release PR."
+              exit 1
+            fi
+            LAST_TAG=""   # no v* tags yet -> initial release; diff the whole history
           fi
           RANGE="${LAST_TAG:+$LAST_TAG..}HEAD"
 
@@ -95,7 +109,7 @@ jobs:
 
       - name: Open / refresh the release PR
         if: steps.prep.outputs.changes == 'true'
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1   # v8.1.1 (third-party -> SHA-pinned; Dependabot keeps it current)
         with:
           branch: automation/release-pr
           base: main
