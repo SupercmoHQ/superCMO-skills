@@ -28,7 +28,7 @@ function ensureKeyFile() {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   fs.chmodSync(dir, 0o700);   // mkdir mode is umask-masked; force 0700 (the dir holds the .env keyfile)
   const body = [
-    '# SuperCMO keys — add at least one below, then restart your host.',
+    '# SuperCMO keys — add at least one below.',
     '# Docs: https://github.com/SupercmoHQ/superCMO-skills#bring-your-own-keys',
     '',
     '# image + video (start here) — WaveSpeed is recommended (better reliability);',
