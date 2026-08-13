@@ -1,18 +1,6 @@
 {
   "keyword": "SUPERCMO",
-  "visible": true,
-  "target_audience": "Founders, marketers and creators who need finished ad-ready creative — images, videos, UGC, voiceovers, product photography — without a production team.",
-  "value_proposition": "An AI creative production team: 10 skills that route every brief to the best generation model, write the prompt properly, and hand back finished images, videos, UGC clips, voiceovers and product photos.",
-  "pain_points": [
-    "Creative production is the bottleneck of every campaign — a single ad video takes days and freelancers",
-    "Raw model access produces weak results without model routing and prompt craft",
-    "Product photos, UGC and voiceovers each need different tools, accounts and skills"
-  ],
-  "proof_points": [
-    "Routes across 10+ SOTA image/video/audio models (Nano Banana, GPT Image, Veo, Kling, ElevenLabs) per brief",
-    "Each skill encodes the prompt guide for its models — no raw-prompt roulette",
-    "The same skills run in Claude Code, Cursor, Gemini CLI and the hosted SuperCMO agent"
-  ],
+  "visible": false,
   "skills": [
     "generating-images",
     "generating-videos",
@@ -30,8 +18,7 @@
   "scripts": [
     "supercmo_env.py"
   ],
-  "toolsets": [
+  "mcp_servers": [
     "supercmo"
-  ],
-  "mcp_servers": []
+  ]
 }
