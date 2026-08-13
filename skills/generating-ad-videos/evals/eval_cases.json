@@ -1,0 +1,42 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. Should-trigger cases cover both routes: story-commercial (actor/presenter-led ad) and product-hero (no one on screen). Negatives must route elsewhere: generating-ugc-videos (phone-real creator testimonial), generating-videos (general video / b-roll / animate a photo), generating-product-photos (product still), generating-images (still), generating-audio (voiceover alone).",
+  "schema_version": 2,
+  "trigger_keywords": [
+    "product ad",
+    "product commercial",
+    "commercial for",
+    "tv ad",
+    "tv commercial",
+    "brand film",
+    "brand commercial",
+    "product-hero",
+    "product hero video",
+    "cinematic ad",
+    "cinematic commercial",
+    "cinematic product",
+    "advertisement for",
+    "luxury product video",
+    "premium product video",
+    "make an ad for",
+    "make a commercial"
+  ],
+  "cases": [
+    { "id": "tc_commercial_actor", "query": "make a cinematic commercial for our smartwatch with an actor presenting it", "expected_trigger": true },
+    { "id": "tc_tv_ad", "query": "create a 15 second tv ad for our energy drink", "expected_trigger": true },
+    { "id": "tc_brand_film", "query": "produce a brand commercial with a presenter for our skincare line", "expected_trigger": true },
+    { "id": "tc_ad_for_product", "query": "I want an advertisement for my leather bag, a proper ad with a model", "expected_trigger": true },
+    { "id": "tc_product_hero", "query": "create a premium product-hero video for our watch, no people on screen", "expected_trigger": true },
+    { "id": "tc_luxury_no_actor", "query": "make a luxury product video of our perfume, cinematic macro shots, no actors", "expected_trigger": true },
+    { "id": "tc_cinematic_product", "query": "cinematic product ad for our sneaker, just the shoe, no presenter", "expected_trigger": true },
+    { "id": "tc_make_commercial", "query": "make a commercial that tells a short story about our headphones", "expected_trigger": true },
+
+    { "id": "tc_ignore_ugc", "query": "make a UGC video of a creator reviewing our serum", "expected_trigger": false },
+    { "id": "tc_ignore_ugc_talkinghead", "query": "tiktok-style talking head video of a creator holding our protein powder", "expected_trigger": false },
+    { "id": "tc_ignore_broll", "query": "make a video of waves crashing on a beach", "expected_trigger": false },
+    { "id": "tc_ignore_animate", "query": "animate this photo with a slow push-in", "expected_trigger": false },
+    { "id": "tc_ignore_packshot", "query": "clean studio packshot of my coffee bag on a plain background", "expected_trigger": false },
+    { "id": "tc_ignore_still", "query": "generate an image of a red bicycle in a city street", "expected_trigger": false },
+    { "id": "tc_ignore_voiceover", "query": "record a voiceover reading this script", "expected_trigger": false },
+    { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

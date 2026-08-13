@@ -47,7 +47,7 @@ asked, pick sensible values, say what you picked in one line, and carry on.
 
 One line per beat, in order, saying what moves.
 
-**Fit the beats to the seconds.** Each beat runs two to four seconds of the clip, so its length
+**Fit the beats to the seconds.** Each beat runs two seconds of the clip where possible, three at most, so its length
 decides how many it has. Fewer, longer beats render; more, shorter ones get dropped or mangled. If
 anyone speaks, the words have to fit too, at about two to three words a second.
 
