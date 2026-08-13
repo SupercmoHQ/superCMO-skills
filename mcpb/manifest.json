@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "supercmo",
   "display_name": "SuperCMO",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Marketing media generation — image, video, voice — for AI agents. BYO keys.",
   "author": {
     "name": "SuperCMO",
@@ -16,7 +16,7 @@
     "entry_point": "uvx",
     "mcp_config": {
       "command": "uvx",
-      "args": ["supercmo-skills@0.1.13"],
+      "args": ["supercmo-skills@0.1.14"],
       "env": {
         "WAVESPEED_API_KEY": "${user_config.wavespeed_api_key}",
         "FAL_KEY": "${user_config.fal_key}",

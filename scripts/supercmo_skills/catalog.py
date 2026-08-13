@@ -247,15 +247,23 @@ def _vroute(audio_param=None, duration_unit=None, max_refs=None, combined_ref_ma
 
 # --- family builders: one per vendor pipeline (variants differ only by id prefix / a few values). ---
 # Every model advertises the same two ratios (VIDEO_ASPECTS); endpoints that derive aspect from the
-# input frame (Kling and Wan image-to-video) simply carry no aspect list and ignore it.
-def _seedance(prefix, resolutions, price=None):
-    a, d = VIDEO_ASPECTS, list(range(4, 16))
-    return _vroute(audio_param="generate_audio", price=price,
-        max_refs={"reference_images": 9, "reference_videos": 3, "reference_audios": 3},
+# input frame (Kling, Wan and Seedance 2.5 image-to-video) simply carry no aspect list and ignore it.
+# Seedance's two generations share a shape but not their numbers: 2.5 doubles the clip ceiling to
+# 30s, lifts the reference ceiling to 50 files, and takes no `aspect_ratio` on image-to-video —
+# fal's accepts only "auto" there, WaveSpeed has no such param at all — hence `i2v_aspect=False`.
+_SD_DURATIONS = list(range(4, 16))                 # 2.0 / fast / mini
+_SD25_DURATIONS = list(range(4, 31))               # 2.5: one continuous take up to 30s
+_SD_REFS = {"reference_images": 9, "reference_videos": 3, "reference_audios": 3}
+_SD25_REFS = {"reference_images": 30, "reference_videos": 10, "reference_audios": 10}
+
+
+def _seedance(prefix, resolutions, price=None, durations=None, max_refs=None, i2v_aspect=True):
+    a, d = VIDEO_ASPECTS, durations or _SD_DURATIONS
+    return _vroute(audio_param="generate_audio", price=price, max_refs=max_refs or _SD_REFS,
         t2v=_ep(f"{prefix}/text-to-video", aspects=a, durations=d, resolutions=resolutions),
         i2v=_ep(f"{prefix}/image-to-video",
             media={"start_frame_image": "image_url", "end_frame_image": "end_image_url"},
-            aspects=a, durations=d, resolutions=resolutions),
+            aspects=a if i2v_aspect else [], durations=d, resolutions=resolutions),
         r2v=_ep(f"{prefix}/reference-to-video",
             media={"reference_images": "image_urls", "reference_videos": "video_urls",
                    "reference_audios": "audio_urls"},
@@ -302,16 +310,16 @@ _WS_FRAMES = {"start_frame_image": "image", "end_frame_image": "last_image"}
 _WS_FRAME_SCALAR = ("image", "last_image")
 
 
-def _ws_seedance(prefix, price):
-    a, d, r = VIDEO_ASPECTS, list(range(4, 16)), ["480p", "720p", "1080p", "4k"]
-    return _ws_vroute(price, audio_param="generate_audio",
-        max_refs={"reference_images": 9, "reference_videos": 3, "reference_audios": 3},
+def _ws_seedance(prefix, price, durations=None, max_refs=None, i2v_aspect=True):
+    a, d, r = VIDEO_ASPECTS, durations or _SD_DURATIONS, ["480p", "720p", "1080p", "4k"]
+    return _ws_vroute(price, audio_param="generate_audio", max_refs=max_refs or _SD_REFS,
         t2v=_ws_ep(f"{prefix}/text-to-video",
             media={"reference_images": "reference_images", "reference_videos": "reference_videos",
                    "reference_audios": "reference_audios"},
             aspects=a, durations=d, resolutions=r),
         i2v=_ws_ep(f"{prefix}/image-to-video", media=_WS_FRAMES, media_scalar=_WS_FRAME_SCALAR,
-            aspects=a, durations=d, resolutions=r, requires=("start_frame_image",)))
+            aspects=a if i2v_aspect else [], durations=d, resolutions=r,
+            requires=("start_frame_image",)))
 
 
 def _ws_kling(prefix, price):
@@ -343,6 +351,20 @@ def _one(display, strengths, route, *more):
 
 # alias -> agent-facing metadata + [wavespeed route, fal route]. Aliases are ours (never a vendor's).
 VIDEO_MODELS = {
+    "seedance-2.5": _one("Seedance 2.5 (ByteDance)",
+        "one continuous take up to 30s, and up to 50 references (30 images, 10 videos, 10 audios) to "
+        "hold a subject across it; audio generated jointly with the picture for tighter lip-sync; "
+        "start+end frame. Pricier per second than 2.0",
+        # PARITY: WaveSpeed serves several extra 2.5 endpoints (turbo tiers, video-edit,
+        # video-extend) that fal does not. An alias needs both lanes, so none of them is carried.
+        _ws_seedance("bytedance/seedance-2.5",
+                     "$0.36/s at 720p ($0.18 480p, $0.90 1080p, $1.80 4k); with reference videos "
+                     "$0.22/s at 720p billed across reference + output seconds",
+                     durations=_SD25_DURATIONS, max_refs=_SD25_REFS, i2v_aspect=False),
+        # fal bills 2.5 by token — ~$0.0214/1K, tokens = h*w*seconds*24/1024 — and caps at 720p.
+        _seedance("bytedance/seedance-2.5", ["480p", "720p"],
+                  price="~$0.47/s at 720p, ~$0.22/s at 480p; references billed at 0.6x",
+                  durations=_SD25_DURATIONS, max_refs=_SD25_REFS, i2v_aspect=False)),
     "seedance-2.0": _one("Seedance 2.0 (ByteDance)",
         "cinematic default workhorse; native synced audio, real-world physics and camera control; "
         "start+end frame and image/video/audio references",
@@ -713,7 +735,7 @@ if __name__ == "__main__":
             assert [r["provider"] for r in _rs] == ["wavespeed", "fal"], (_cap, _m, _rs)
             assert all(r.get("price") for r in _rs), f"{_cap}/{_m} route missing a price"
     assert default_model("video") == "seedance-2.0-fast"
-    assert len(VIDEO_MODELS) == 11 and len(IMAGE_MODELS) == 8
+    assert len(VIDEO_MODELS) == 12 and len(IMAGE_MODELS) == 8
 
     # ---- fal endpoint resolution is unchanged ----
     _sd = routes_of("video", "seedance-2.0")[1]
@@ -769,6 +791,28 @@ if __name__ == "__main__":
     _wkl = routes_of("video", "kling-3.0-pro")[0]
     assert video_media_kinds(_wkl) == {"start_frame_image", "end_frame_image"}, video_media_kinds(_wkl)
     assert _wkl["audio_param"] == "sound"        # Kling's toggle is not generate_audio
+
+    # ---- seedance 2.5: 30s ceiling, 50 references, no aspect control on image-to-video ----
+    _w25, _f25 = routes_of("video", "seedance-2.5")
+    for _r in (_w25, _f25):
+        _e = _r["endpoints"]
+        assert _e["t2v"]["durations"] == list(range(4, 31)), (_r["provider"], _e["t2v"]["durations"])
+        # output ratio follows the input frame here, so the ratio is not sent (fal takes only "auto")
+        assert not _e["i2v"]["aspects"] and _e["t2v"]["aspects"] == VIDEO_ASPECTS, _r["provider"]
+        assert _r["max_refs"] == {"reference_images": 30, "reference_videos": 10,
+                                  "reference_audios": 10}, _r["provider"]
+    assert _f25["endpoints"]["t2v"]["resolutions"] == ["480p", "720p"]   # fal serves no 1080p/4k tier
+    assert _w25["endpoints"]["t2v"]["resolutions"] == VIDEO_RESOLUTIONS
+    # same lane split as 2.0: references ride text-to-video on wavespeed, their own endpoint on fal
+    assert video_endpoint_for(_f25, {"reference_videos"})["id"].endswith("reference-to-video")
+    assert video_endpoint_for(_w25, {"reference_videos"})["id"].endswith("text-to-video")
+    assert video_endpoint_for(_w25, set())["id"].endswith("text-to-video")
+    for _r in (_w25, _f25):
+        assert video_endpoint_for(_r, {"start_frame_image", "end_frame_image"})["id"].endswith("image-to-video")
+    # 2.0 keeps its own smaller ceilings — the shared builder must not have levelled them up
+    assert routes_of("video", "seedance-2.0")[1]["endpoints"]["t2v"]["durations"] == list(range(4, 16))
+    assert routes_of("video", "seedance-2.0")[0]["max_refs"]["reference_images"] == 9
+    assert routes_of("video", "seedance-2.0-mini")[1]["endpoints"]["i2v"]["aspects"] == VIDEO_ASPECTS
 
     # ---- image routes: the edit endpoint's narrower surface, and FLUX's pixel sizes ----
     _wgrok = routes_of("image", "grok-imagine")[0]

@@ -3,7 +3,7 @@ name: writing-video-scripts
 description: Writes what is said in a video — the words a person speaks on camera, or a voiceover heard over the picture. Fits the writing to the time available, so lines are never rushed to fit or padded to fill. A video longer than a single clip gets its script split into one piece per clip, each sized to that clip's seconds. Outputs the words as text only — nothing is recorded or voiced here. Use when the user wants a script, dialogue, or a voiceover written for a video.
 license: Apache-2.0
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
   category: creative
   summary: "Drafts spoken scripts built around proven opening hooks designed specifically to stop the scroll. It sizes the text to fit your exact runtime and paces words across natural breath points for human delivery."
 ---
@@ -16,8 +16,9 @@ Write the whole monologue first, to the video's total length, then cut it into o
 
 ### Step 1: Collect what the video has already fixed
 
-Five things are decided before the script is written, and the writing has to fit inside them:
+These are decided before the script is written, and the writing has to fit inside them:
 
+- **a brief of what the words should communicate** — the script is written from this, cut to fit the duration where it won't all fit
 - how long the video runs in total
 - how many clips it is, and how many seconds each one runs
 - which beats of the story land in which clip — what happens on screen, not what gets said
@@ -43,19 +44,7 @@ long, cut words. Never speed up the delivery, and never stretch the clip to fit 
 ### Step 3: Write the hook
 
 The first three seconds decide whether the rest gets watched, so write this line before any other.
-
-It has to clear all five of these:
-
-- **It fits in three seconds** — six to ten words at speaking pace. The viewer has already decided
-  by then, so a line that needs longer has arrived too late.
-- **It is about what is on screen.** Write it against the opening beats from Step 1. 
-  If the line could sit over any other video, it isn't the hook for this one.
-- **It is specific, and the specific thing is true.** A number, a length of time, a plain observable
-  fact — but only one that was supplied in Step 1 or is visible on screen. Where nothing is supplied, the observable detail is the route.
-- **It leaves something unanswered.** Hold back a piece the rest of the video supplies, so the gap
-  itself is the reason to keep watching. 
-- **It doesn't open on the brand, and it doesn't greet anyone.** No hello, no product name, no
-  "introducing". Both cost the whole window and tell the viewer this is an ad.
+- **It fits in three seconds** — six to ten words at speaking pace. The viewer has already decided by then, so a line that needs longer has arrived too late.
 
 **Pick one pattern and commit to it.** These are the ones that recur across short-form:
 
@@ -69,27 +58,14 @@ It has to clear all five of these:
 - **Pattern interrupt** — an ordinary scene with one thing visibly wrong, played straight.
 - **Listicle** — state a defined scope up front, so the viewer knows what they are committing to.
 
-Some patterns are carried by the line, with the picture underneath it; others are carried by
-something already happening on screen, and the line only names it. Know which one this is before
-writing, and don't run two at once — they cancel out.
-
 ### Step 4: Write the monologue
 
 **The hook from Step 3 is the first line.** Everything after it carries that same thought forward and finally closes the gap it opened.
 
-What the video is doing, and in what order, was fixed in Step 1. The script follows that rather than
-inventing a second structure on top of it.
+**It has to sound spoken, not read.** If a viewer can tell the words are being read, the whole premise goes.
 
-**It has to sound spoken, not read.** If a viewer can tell the words are being read, the whole
-premise goes.
-
-- Write the way people actually talk — contractions, sentence fragments, a thought that restarts, the
-  occasional aside. Full, balanced sentences are the clearest sign of a script.
-- **Specific beats general, every time.** A detail a viewer could check carries more than a general
-  one. Say how long something took, how much there was, what it replaced, what it stopped doing,
-  etc. — for example, that a jar lasted three months rather than that it lasted ages.
-- **Never invent a claim.** Where claims were supplied, use them as written and add nothing. Where
-  none were supplied, none get made.
+- Write the way people actually talk — contractions, sentence fragments, a thought that restarts, the occasional aside. Full, balanced sentences are the clearest sign of a script.
+- **Specific beats general, every time.** A detail a viewer could check carries more than a general one. 
 - **Make a point once.** Once a point has been made it is spent.
 
 **Write only what can be said aloud.** Commas and full stops are what a reader turns into breath, so

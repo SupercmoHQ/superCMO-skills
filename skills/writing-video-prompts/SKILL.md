@@ -3,7 +3,7 @@ name: writing-video-prompts
 description: Writes the motion prompt for a video clip — what moves, how the camera behaves, the physics and the audio, in the shape the chosen model wants. Works from a brief alone, from a start frame, from a source video, or from a storyboard sheet where each panel becomes a cut. Handles one clip or a whole set, returning one prompt per clip. Nothing is generated here. Use when a clip's model, duration and content are settled and it needs the prompt written.
 license: Apache-2.0
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
   category: creative
   summary: "Translates your scenes into the highly specific, detailed instructions that different video models require. It times the camera motion and steers around known AI rendering limits to match your exact visual brief."
 ---
@@ -51,6 +51,7 @@ hand, a duplicate arm, a doubled person.
 
 | Model | Guide |
 | --- | --- |
+| `seedance-2.5` | `references/prompt-seedance.md` |
 | `seedance-2.0` | `references/prompt-seedance.md` |
 | `veo-3.1` | `references/prompt-veo.md` |
 | `gemini-omni` | `references/prompt-gemini-omni.md` |
@@ -63,6 +64,8 @@ The `-fast` / `-lite` / `-turbo` / `-standard` / `-mini` variants share their fa
 **The guide owns how the prompt is laid out** — the order the elements go in, how references are
 labelled, how speech and sound are marked, and how to keep something out of frame. Follow it on all
 of those, over anything the steps below imply about layout.
+
+It does not own which sections the prompt is built from or the order they come in. Step 6 fixes those, and they are the same whatever the model.
 
 **It does not decide whether the clip cuts.** Step 2 already did, from the media. A guide showing how
 to write a sequence of shots is giving you the layout to use *if* the clip has one — not a reason to
@@ -82,8 +85,9 @@ opens on.
 - **A start or end frame** — named as the frame the clip opens or closes on.
 - **The person** — labelled on first mention in a beat, then the plain noun. Repeat the label later
   in the same beat and the render snaps back to the reference, breaking continuity.
-- **The product** — label it where it is shown intact: first introduction, a hero close-up, a label
-  point-out. Drop the label during any verb that changes it — opening, tearing, pouring, scooping,
+- **The product** — pointed at by its label and its name, never described; words about its colour, finish, shape or markings compete with the image and the sheet, both already on the call. A fuller description from the plan is for your reference, never for the prompt.
+  Label it where it is shown intact: first introduction, a
+  hero close-up, a label point-out. Drop the label during any verb that changes it — opening, tearing, pouring, scooping,
   applying, drinking, mixing, putting on — because carrying it through forces the product back to its
   reference state mid-beat, so an opened jar snaps shut. Pick the label up again once it is shown
   intact.
@@ -111,12 +115,24 @@ Write the cut to the panel, and say which panel disagreed and how.
 
 ### Step 6: Write the clip
 
-Write 6a to 6d, laid out in the order the model's guide sets out.
+**Every prompt is built from the same sections, in this order:**
+
+1. **The look** — 6a below.
+2. **What the clip is** — 6b below.
+3. **The beats** — 6c to 6e below.
+4. **The audio** — Step 7.
+5. **The closing block** — Step 8.
+
+The guide names each section and marks what goes in it. Leave out a section the clip has no use for;
+never reorder them, and never fold one into another.
 
 **6a — The look.** One line: the light, and how the camera behaves across the clip. Add the delivery
 register where anyone speaks.
 
-**6b — The beats**, in order.
+**6b — What the clip is.** One sentence: who is in it, where they are, and what happens across the
+whole clip. It is what the beats add up to, never a beat of its own.
+
+**6c — The beats**, in order.
 
 - **Each cut is one or two sentences, carrying one verb that moves something.** A second moving
   verb is a second cut.
@@ -127,21 +143,21 @@ register where anyone speaks.
 - **Without cuts, time the beats only where the model's guide uses timings.** Some models read a
   written span; others are made unstable by one and want the beats in order with the pacing following
   the action.
-- **How long each beat is.** Each one runs two to four seconds of the clip, and they add up to its
+- **How long each beat is.** Each one runs two seconds of the clip where possible, three at most, and they add up to its
   length exactly.
 - **The first beat opens already underway** rather than on a held pose. Where a frame is fixed, it
   opens exactly on what that shows — nothing enters and nothing changes state before the motion
   starts. Where a person is on camera, that means hands already moving or a reaction already on the
   face, and the first words landing at the top of the beat rather than after a pause.
 
-**6c — The camera, in every beat.** Where a sheet or a start frame already fixes what is in frame and
+**6d — The camera, in every beat.** Where a sheet or a start frame already fixes what is in frame and
 where the camera sits, only how it moves is yours — a push in, a pull back, a tilt, a pan, a rack
 focus, a handheld sway. Without one, write the framing and the position too. Locked off means the
 frame doesn't move and everything moves inside it, so keep any word suggesting an unsteady grip or a
 travelling lens out of those beats. At arm's length the camera is the phone and carries a small
 natural unsteadiness; nothing showing a handset, a screen, or either reflected belongs in shot.
 
-**6d — The person, where one is on camera.**
+**6e — The person, where one is on camera.**
 
 - **Hands, counted at every moment.** A phone held at arm's length takes up one hand, so a single hand
   is free to act; a locked-off shot leaves both. Describe a third job — hold one thing, work a second,
@@ -167,8 +183,7 @@ natural unsteadiness; nothing showing a handset, a screen, or either reflected b
   changed.
 - **Describe only what the media show.** Texture, back panels, interiors and hidden mechanisms
   outside the frame come back invented.
-- **Nothing can be written as absent.** A thing named is a thing rendered, whether object, action or
-  sound.
+- **Nothing can be written as absent.** A thing named is a thing rendered, whether object, action or sound.
 
 Every piece of media also goes to the model on the call, so don't restate what it shows — the same
 instruction twice renders a slideshow. But write the prompt full: written thin, the image wins and
@@ -196,7 +211,16 @@ happens on, keep it to two or three sounds at once, and never write a sound as a
 in a beat whose action doesn't produce it makes the model add the action to match. Don't repeat spoken
 words in the ambience line, and don't name or imply music unless the user asked for it.
 
-### Step 8: Hand the prompts back
+### Step 8: Close the prompt
+
+Every prompt ends on this block, after the audio, word for word:
+
+> Faces clear and undistorted, two hands per person, properly formed. No mirror, screen or glass showing anyone reflected. No on-screen text, no
+subtitles, no captions, no logo, no watermark.
+
+Cut the clauses about people where nobody is on camera. Add whatever the model's guide names as that model's own recurring defects, in the same plain form.
+
+### Step 9: Hand the prompts back
 
 Write every clip's prompt before any of them is generated. They don't depend on each other, and a
 prompt is far cheaper to fix on paper than after it has rendered.

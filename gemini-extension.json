@@ -1,11 +1,11 @@
 {
   "name": "supercmo",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Marketing media generation — image, video, voice — for AI agents. BYO keys.",
   "mcpServers": {
     "supercmo": {
       "command": "uvx",
-      "args": ["supercmo-skills@0.1.13"]
+      "args": ["supercmo-skills@0.1.14"]
     }
   }
 }
