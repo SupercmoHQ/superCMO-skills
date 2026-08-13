@@ -19,6 +19,19 @@ Just provide a product photo and a brief. The agent extracts the product details
 [![CI](https://img.shields.io/github/actions/workflow/status/SupercmoHQ/superCMO-skills/validate.yml?branch=main&label=CI)](https://github.com/SupercmoHQ/superCMO-skills/actions)
 
 <details open>
+<summary><strong>UGC video</strong></summary>
+
+> ```
+> create an ugc video for this tshirt. it should be a get ready with me reel. snappy. very genz. [product-photo]
+> ```
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/d9daa15f-c534-497e-8e35-6e497b7eaa05" width="360" controls></video>
+</div>
+
+</details>
+
+<details open>
 <summary><strong>Product ad video</strong></summary>
 
 > ```
@@ -26,7 +39,7 @@ Just provide a product photo and a brief. The agent extracts the product details
 > ```
 
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/ab64d169-743f-444a-a7a4-ccae571b0ea4" width="100%" controls></video>
+  <video src="https://github.com/user-attachments/assets/ab64d169-743f-444a-a7a4-ccae571b0ea4" width="360" controls></video>
 </div>
 
 </details>
@@ -35,6 +48,7 @@ Just provide a product photo and a brief. The agent extracts the product details
 
 ## Contents
 
+- [See how it works](#see-how-it-works)
 - [Quick start](#quick-start)
 - [Start from a product photo](#start-from-a-product-photo)
 - [Why SuperCMO Skills?](#why-supercmo-skills)
@@ -47,6 +61,20 @@ Just provide a product photo and a brief. The agent extracts the product details
 - [Community](#community)
 - [Contributing](#contributing)
 - [License](#license)
+
+---
+
+## See how it works
+
+A full production studio inside Claude. You provide a product photo and a high level (or detailed) brief.
+
+The AI agent then plans the video → writes the script → generates the AI actor → creates storyboards → generates the video clips → stitches them together, and delivers the final video.
+
+The best part? You stay in charge all along.
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/08a2f818-b56d-488a-8029-57ad6ad3cd0a" width="800" controls></video>
+</div>
 
 ---
 

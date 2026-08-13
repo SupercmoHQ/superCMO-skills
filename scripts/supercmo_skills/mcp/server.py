@@ -25,7 +25,7 @@ if telemetry is not None:
 _GEN_TOOLS = {"image_generate", "video_generate", "text_to_speech", "url_extraction", "image_analysis"}
 
 SERVER_NAME = "supercmo"
-SERVER_VERSION = "0.1.14"
+SERVER_VERSION = "0.1.15"
 DEFAULT_PROTOCOL = "2025-06-18"
 
 
