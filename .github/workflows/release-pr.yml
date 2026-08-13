@@ -1,6 +1,6 @@
 name: Release PR
 
-# Every day (and on demand) open or refresh ONE standing PR that bumps the version and lists
+# Every weekday (and on demand) open or refresh ONE standing PR that bumps the version and lists
 # every commit landed on main since the last release. MERGE it to release: the merge changes
 # package.json's version, which fires release.yml to publish to PyPI + npm + the MCP registry + a
 # GitHub Release + .mcpb. Nothing publishes until you merge — this only PREPARES the release, so you
@@ -14,7 +14,7 @@ name: Release PR
 
 on:
   schedule:
-    - cron: '30 3 * * *'   # Daily 03:30 UTC (09:00 IST) — a fresh release PR each morning. Use '* * 1-5' for weekdays only.
+    - cron: '30 3 * * 1-5'   # Weekdays (Mon-Fri) 03:30 UTC (09:00 IST) — a fresh release PR each weekday morning.
   workflow_dispatch:
     inputs:
       bump:
