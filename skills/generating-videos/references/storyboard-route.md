@@ -42,7 +42,7 @@ The rest is yours to decide.
 
 - One clip is one storyboard. What happens in it is settled here; how it divides into panels is
   worked out when the sheet is built.
-- A **primary action** is one continuous motion at one object, and each one needs two to four
+- A **primary action** is one continuous motion at one object, and each one needs two to three
   seconds. The clip's length is therefore how many it can carry — write its share of the story to
   that number.
 - Nothing finer than a whole hand movement, and no state change shown on screen: where the thing has
@@ -69,8 +69,8 @@ The rest is yours to decide.
 
 Skip this when nobody speaks.
 
-Otherwise trigger the `writing-video-scripts` skill workflow with the concept from Step 2: the clip
-durations, what happens in each clip, and the word budget.
+Otherwise trigger the `writing-video-scripts` skill workflow with a brief of what the words should
+communicate, the concept from Step 2: the clip durations, what happens in each clip, and the word budget.
 
 ### Step 4: Show the concept and wait
 
@@ -108,7 +108,8 @@ Otherwise trigger the `generating-ai-actors` skill workflow with the person from
 — the same age, clothes and setting, not a new invention — and the look the video is going for.
 
 **Anything else in more than one clip works the same way** — a product, a prop, an animal. One clean
-image of it on a plain white background, made once with a single `image_generate` call.
+image of it on a plain white background, made once with a single `image_generate` call at `1k`
+resolution unless the user asked for a higher tier.
 
 Skip if the user already supplied a photo of it. **If it's a real product and no photo was supplied,
 ask for one instead of inventing it** — an invented product held consistently across every clip is
@@ -118,9 +119,15 @@ worse than stopping to ask.
 
 Trigger the `generating-storyboards` skill workflow with: one sheet per clip, what happens in that
 clip and how many seconds it runs, which sheet this is and how many there are, the images from Step 5
-as references, and its script segment if there is one. How the clip divides into panels is worked out
+as references, its script segment if there is one, and the look the video is going for. How the clip divides into panels is worked out
 there, not here. The sheet's own shape is not yours to set — it is always `16:9` with
 vertical panels, whatever ratio the video is delivered in.
+
+**Once every sheet is built, show them all in one message and wait.** Ask whether to go ahead with
+the video production, and where there is a product, ask them to check it in particular — that it is rendered
+right in every panel it appears in. They can change any panel: rebuild only the sheet that panel is
+on, show it, and keep going until they approve. Where the user has said they don't want to be asked,
+say in one line what you're going with and carry on.
 
 ### Step 7: Write the prompts
 
@@ -159,9 +166,8 @@ the individual clips if the user asks for them.
 **Never regenerate a clip without the user asking for it.** Every re-run is billed again. Hand back
 what came out, say what looks wrong, and wait — including in the cases below.
 
-- **A sheet comes back wrong** — remake it, then remake every sheet after it. Each sheet is built
-  from the one before, so they all copy the mistake. Sheets are cheap; a clip made from a wrong sheet
-  is not.
+- **A sheet comes back wrong** — remake only that sheet. Sheets are cheap; a clip made from a wrong
+  sheet is not.
 - **One clip in the batch fails while the others succeed** — send a new call with only that request.
   Re-running the whole list bills every clip again.
 - **A clip doesn't match its sheet** — hand it over and say what looks off. Whether it's close enough

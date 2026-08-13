@@ -148,6 +148,7 @@ subject from the set.
 Call `image_generate` with a `requests` list (one object per image):
 
 - Per object: `prompt`; `model`; `aspect_ratio`; `resolution`; `reference_images`.
+- **`resolution` is `1k`** unless the user asked for a higher tier.
 - **The product photo goes in `reference_images` every time.** It holds identity; the prompt alone
   will not.
 - **Take the ratio from the user.** If they haven't named one, derive it from where the image runs —

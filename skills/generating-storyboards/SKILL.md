@@ -3,7 +3,7 @@ name: generating-storyboards
 description: Generates the storyboard sheets for a video — one image per clip, panels in a row, each panel one action. Divides each clip into panels itself, then builds the sheets one at a time, each taking the previous one as a reference, so the person and product stay consistent except where the story deliberately changes them. Use when a video's clip lengths and story are settled and it needs sheets before anything is animated. Not for a still image on its own — that should be made using generating-images.
 license: Apache-2.0
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
   category: creative
   summary: "Draws out your entire video concept clip-by-clip as static images, enforcing strict character and product continuity so you can approve camera angles and visual flow before committing to expensive video renders."
 ---
@@ -59,11 +59,11 @@ Where any of this is missing, ask for it rather than assuming it.
   hands, or nobody at all.
 - **Setting** — where they are, when, and how it's lit. Unless the plan sends them elsewhere, carry
   the location, the hour and the direction of the light straight from the person's image.
-- **Light** — from a named direction, soft and neutral. No golden hour, sunset, or amber cast unless
-  the plan asks for it, and never studio lighting.
+- **Light** — from a named direction. The plan's look sets its quality — soft and neutral, dramatic
+  and low-key, or clean studio light. No golden hour, sunset, or amber cast unless the plan asks for it.
 - **Wardrobe** — the garments and their colours, named. From the person's image by default.
-- **Look** — by default a phone photograph in available light, sensor grain, real skin. A look named
-  in the plan wins.
+- **Look** — the look the plan names, carried into every sheet. Where the plan names none, a clean,
+  naturally-lit photographic still.
 - **Product name** — one short noun phrase, used word for word in every panel that mentions it.
 - **Product size** — a measurement, so it can be held against the hand at its real size.
 
@@ -80,7 +80,7 @@ The plan gives the clip's story and its seconds. How many panels carry it is wor
 split it wherever a second motion starts or a second object is taken up: *picks it up*, *tilts it to
 the light*, *puts it on* are three panels, never one line.
 
-**Each panel runs two to four seconds of the clip**, so the seconds set how many there are. A story
+**Each panel runs two seconds of the clip where possible, three at most**, so the seconds set how many there are. A story
 that splits into more panels than the clip has room for is too much for the clip — say so and cut a
 motion rather than crowding them.
 
@@ -122,7 +122,8 @@ second sheet and after, the first panel continues from the final panel of the sh
 or whatever else the look calls for.
 
 **2. Framing** — name the distance outright: macro, tight close-up, medium close-up, medium,
-waist-up, three-quarter, full-body wide.
+waist-up, three-quarter, full-body wide. Where the plan names a drawn look, state the distance as
+composition — how much of them is in the panel — and keep every other camera word out.
 
 **3. Action** — one physical thing happening: a single continuous motion at a single object. Never
 two hand actions at once. Where it handles a product, write the hand mechanics as a sequence — which
@@ -173,7 +174,8 @@ Example: Panel 2 — vertical photographic still, locked off: medium close-up on
 
 **The constraints:**
 
-- Every panel a photographic still in the same register.
+- Every panel in the plan's look, the same register across the whole row, in the plan's own words for
+  it rather than reworded. Where the plan names none, a photographic still.
 - **No text anywhere on the sheet** — no lettering, numbering, captions, badges or watermarks, and
   nothing written over a picture.
 - Two hands per person, no more, properly formed.
@@ -181,7 +183,8 @@ Example: Panel 2 — vertical photographic still, locked off: medium close-up on
 - Every face clear and undistorted; where they are speaking, a mouth open mid-word is correct.
 - Where the shot is a selfie, no reflective surface showing the person and no phone in frame.
 - No lens effects — no bokeh or deliberate shallow focus, no flare, no colour grade, no fisheye or
-  ultra-wide distortion.
+  ultra-wide distortion. Leave this line out entirely where the plan's look is drawn or rendered:
+  camera vocabulary pulls a drawn panel back toward a photograph even when it is being negated.
 
 Add these where the video has a product:
 
@@ -195,9 +198,10 @@ Add these where the video has a product:
 
 One `image_generate` call:
 
-- `prompt` — the one assembled in Step 3, whole.
+- `prompt` — the one assembled in Step 5, whole.
 - `model` `gpt-image-2`. **`aspect_ratio` is always `16:9`** — a row of panels needs the width,
   whatever shape the video is. Only the model changes, and only where the plan names one.
+- `resolution` `1k`, unless the user asked for a higher tier.
 - `reference_images` — the product image or images, the person's image, and from the second sheet on,
   the sheet generated just before this one. **Pass them in the same order they were labelled in Step
   2**, or the labels in the prompt point at the wrong pictures.

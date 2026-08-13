@@ -40,7 +40,9 @@ for genuine multi-step orchestration or a distinct reviewer role.
   the skill self-contained and portable.
 - **Standalone subagent:** an `agents/<name>.md` at the repo root with frontmatter — `name`,
   `description` (the trigger/when-to-delegate), and optional `tools` / `model` / `skills` (preload).
-  Add it to `.claude-plugin/supercmo.json` → `agents`.
+  Nothing registers it: agents, skills and references are discovered from the tree. Listing them by
+  hand in `.supercmo-plugin/supercmo.json` is rejected by `quick_validate.py`, because a written-out
+  list silently drifts when a component is added or renamed.
 
 ## Validate (must pass before merge)
 

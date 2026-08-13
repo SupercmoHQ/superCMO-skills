@@ -3,7 +3,7 @@ name: generating-videos
 description: ALWAYS read this skill before generating or animating any video, or calling video_generate — text-to-video, image-to-video, a start→end transition, or a reference / motion / audio-guided clip. Generates a video from a brief — one clip, or several clips joined into a single file at any length. Use when the user wants to make or generate a video, animate a photo, bring an image to life, produce b-roll, film a described scene, or move from one held frame to another. This skill should also be used when the video takes its motion or style from an existing video, or has to run to an existing audio track. 
 license: Apache-2.0
 metadata:
-  version: "0.5.0"
+  version: "0.8.0"
   category: creative
   summary: "Routes your brief to the best of 10+ SOTA video models (like Veo, Seedance), writes detailed prompts as per model specifications and generates multi-clip stories that hold continuity across cuts, stitched into one file."
 ---
@@ -26,7 +26,7 @@ already analyzed it.
 whether anyone speaks.
 
 **Where the video has a product, write one description of it** and reuse it unchanged in every
-storyboard and every clip prompt — rephrasing it between calls reads as a different product.
+storyboard — rephrasing it between calls reads as a different product.
 
 - **Material and finish**, surface by surface.
 - **Size** — its width and height, and how it sits against a hand.
@@ -51,6 +51,7 @@ Reach past the default only on a clear signal:
 
 | Reach for another model when the brief… | Model |
 | --- | --- |
+| Needs one unbroken shot longer than 15 seconds, or more than nine reference images | `seedance-2.5` |
 | Needs spoken dialogue with lip-sync, the tightest prompt-following, or top cinematic quality | `veo-3.1-fast` |
 | Is editing an existing clip — restyle it, add or replace an element, fix on-screen text — or hinges on legible on-screen text | `gemini-omni` |
 | Must hold one person or character consistent across references or several shots | `kling-3.0-pro` |
@@ -70,15 +71,12 @@ Then **call `list_video_models` for the chosen model** and read its accepted mod
 
 ### Step 3: Route
 
-Take one of three paths:
+Take one of four paths:
 
-- **The video is a person on camera presenting a product** — holding it and talking about it, opening
-  its package, putting it on, demonstrating it → Trigger the `generating-ugc-videos` skill workflow,
-  whether or not the brief says UGC.
-- **One clip covers it** — the video runs no longer than the model's longest clip, and holds one
-  continuous shot → Read and follow the steps in `references/direct-route.md`.
-- **It needs more than one clip** — the video runs longer than the model's longest clip, or the brief
-  needs a cut between shots → Read and follow the steps in `references/storyboard-route.md`.
+- **The video is a UGC video** — a creator or customer, as themselves, sharing their own take on a product: a review, unboxing, try-on, tutorial, testimonial or influencer endorsement → Trigger the `generating-ugc-videos` skill workflow, whether or not the brief says UGC.
+- **The video is a product ad or commercial** — a produced advertisement in the brand's voice: a product-hero showcase with no one on screen, or a story or lifestyle commercial where a presenter or actor plays a role in the brand's spot → Trigger the `generating-ad-videos` skill workflow.
+- **One clip covers it** — the video runs no longer than the model's longest clip, and holds one continuous shot → Read and follow the steps in `references/direct-route.md`.
+- **It needs more than one clip** — the video runs longer than the model's longest clip, or the brief needs a cut between shots → Read and follow the steps in `references/storyboard-route.md`.
 
 `list_video_models` gives the model's longest clip. Storyboard sheets are what keep a person, a place
 and a product looking the same from clip to clip, and what fixes the frame on both sides of a cut, so

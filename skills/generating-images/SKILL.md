@@ -97,8 +97,8 @@ mood. A dense, concrete, technical description beats a thin one-liner or vague a
 
 Call `image_generate` with a `requests` list (one object per image):
 
-- Per object: `prompt` (required); `model` from Step 1; `aspect_ratio`; `resolution` — step up a tier
-  when the image carries a lot of text; `reference_images` for a supplied source.
+- Per object: `prompt` (required); `model` from Step 1; `aspect_ratio`; `resolution` —
+  **`1k` unless the user asked for a higher tier**; `reference_images` for a supplied source.
 - For several **different** images (an A/B set, a carousel), add one request object per image to the
   same call.
 

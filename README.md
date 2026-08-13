@@ -18,6 +18,19 @@ Just provide a product photo and a brief. The agent extracts the product details
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/SupercmoHQ/superCMO-skills/validate.yml?branch=main&label=CI)](https://github.com/SupercmoHQ/superCMO-skills/actions)
 
+<details open>
+<summary><strong>Product ad video</strong></summary>
+
+> ```
+> make me an ad video for this energy drink [product-photo]
+> ```
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/ab64d169-743f-444a-a7a4-ccae571b0ea4" width="100%" controls></video>
+</div>
+
+</details>
+
 ---
 
 ## Contents
@@ -137,6 +150,7 @@ These are the discrete skills installed into your agent to run that pipeline:
 | Skill | Description |
 |-------|-------------|
 | [analyzing-products](skills/analyzing-products/) | Analyzes an e-commerce link or photo to map out your product's exact physical mechanics and extract clean reference images, building a highly accurate creative brief without any manual research or extraction. |
+| [generating-ad-videos](skills/generating-ad-videos/) | Produces a polished, cinematic product commercial in your brand's voice — a no-actor product showcase or an actor-led story ad, at any length. It storyboards every clip to hold your real product identical across cuts, writes the voiceover and casts the actor when the ad calls for one, then stitches it into one ready-to-run spot you approve step by step before anything expensive renders. |
 | [generating-ai-actors](skills/generating-ai-actors/) | Casts a distinct, demographic-specific AI actor as a reusable identity reference, allowing you to reliably feature the exact same brand face across an entire multi-asset image and video campaign. |
 | [generating-audio](skills/generating-audio/) | Converts scripts into audio. Lets you preview voice candidates from top models before generating. It then formats your script's numbers, dates, and URLs so the chosen AI model pronounces them accurately. |
 | [generating-images](skills/generating-images/) | Routes your brief to the best of 10+ SOTA image models (like Nano Banana, GPT Image), writes detailed prompts as per model specifications and generates multiple variations instantly. |

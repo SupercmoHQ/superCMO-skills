@@ -129,8 +129,8 @@ Write the prompt as prose in this order — one paragraph is enough.
 
 ### Step 5: Generate and hand back
 
-One `image_generate` call, `nano-banana-pro` at `3:4` unless the brief named a model or shape.
-Generate once — never a second version to compare.
+One `image_generate` call, `nano-banana-pro` at `3:4` and `resolution` `1k` unless the brief named a
+model, a shape or a higher resolution. Generate once — never a second version to compare.
 
 The image is polled for you, but it can come back as `{status: "pending", …}` — a job handle, not a
 failure. Pass that exact handle to `job_status` to retrieve the finished image, and again if it is
