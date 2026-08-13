@@ -166,8 +166,6 @@ def validate_plugin(repo_root):
         print(f"❌ Error: invalid plugin.json: {e}")
         valid = False
 
-    # SuperCMO hosted-product manifest — its OWN host dir, like .claude-plugin /
-    # .codex-plugin. It is not a Claude file and must not sit in Claude's dir.
     supercmo_json = os.path.join(repo_root, ".supercmo-plugin", "supercmo.json")
     if os.path.exists(supercmo_json):
         try:
@@ -176,13 +174,11 @@ def validate_plugin(repo_root):
         except Exception as e:
             print(f"❌ Error: invalid supercmo.json: {e}")
             return False
-        for skill_name in manifest.get("skills", []):
-            if not os.path.exists(os.path.join(repo_root, "skills", skill_name)):
-                print(f"❌ Error: supercmo.json references missing skill: '{skill_name}'")
-                valid = False
-        for agent_file in manifest.get("agents", []):
-            if not os.path.exists(os.path.join(repo_root, "agents", agent_file)):
-                print(f"❌ Error: supercmo.json references missing agent: '{agent_file}'")
+        for key in ("skills", "agents", "references"):
+            if key in manifest:
+                print(f"❌ Error: supercmo.json must not enumerate '{key}' — components are "
+                      f"discovered from the tree (as Claude and Codex do); a hand-written "
+                      f"list silently drifts when one is added or renamed.")
                 valid = False
         for script_file in manifest.get("scripts", []):
             if not os.path.exists(os.path.join(repo_root, "scripts", script_file)):

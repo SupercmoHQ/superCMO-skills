@@ -1,20 +1,6 @@
 {
   "keyword": "SUPERCMO",
   "visible": true,
-  "skills": [
-    "generating-images",
-    "generating-videos",
-    "generating-ugc-videos",
-    "generating-ai-actors",
-    "generating-storyboards",
-    "writing-video-scripts",
-    "writing-video-prompts",
-    "analyzing-products",
-    "generating-audio",
-    "generating-product-photos"
-  ],
-  "agents": [],
-  "references": [],
   "scripts": [
     "supercmo_env.py"
   ],
