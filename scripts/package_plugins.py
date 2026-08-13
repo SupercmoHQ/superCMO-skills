@@ -22,7 +22,9 @@ import tempfile
 # Top-level entries that make up the installable plugin — everything the plugin
 # needs at runtime, and NOT bin/ or package.json (see the module docstring).
 PLUGIN_ENTRIES = [
-    ".claude-plugin",   # plugin.json / marketplace.json / supercmo.json
+    ".claude-plugin",   # plugin.json / marketplace.json
+    # NOT .supercmo-plugin: that manifest is for the hosted SuperCMO host (like
+    # .codex-plugin is for Codex). Claude never reads it, so it stays out of this bundle.
     ".mcp.json",        # declares the supercmo MCP server (uvx supercmo-skills@<version> from PyPI)
     "skills",           # the skills (markdown the agent loads; tools come from the uvx server)
     "LICENSE",          # Apache-2.0 (redistribution)

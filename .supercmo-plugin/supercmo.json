@@ -1,0 +1,11 @@
+{
+  "keyword": "SUPERCMO",
+  "visible": true,
+  "scripts": [
+    "supercmo_env.py"
+  ],
+  "toolsets": [
+    "supercmo"
+  ],
+  "mcp_servers": []
+}
