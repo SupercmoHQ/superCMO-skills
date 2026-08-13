@@ -1,6 +1,6 @@
 {
   "keyword": "SUPERCMO",
-  "visible": false,
+  "visible": true,
   "skills": [
     "generating-images",
     "generating-videos",
@@ -18,7 +18,8 @@
   "scripts": [
     "supercmo_env.py"
   ],
-  "mcp_servers": [
+  "toolsets": [
     "supercmo"
-  ]
+  ],
+  "mcp_servers": []
 }

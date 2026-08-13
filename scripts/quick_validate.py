@@ -166,7 +166,9 @@ def validate_plugin(repo_root):
         print(f"❌ Error: invalid plugin.json: {e}")
         valid = False
 
-    supercmo_json = os.path.join(repo_root, ".claude-plugin", "supercmo.json")
+    # SuperCMO hosted-product manifest — its OWN host dir, like .claude-plugin /
+    # .codex-plugin. It is not a Claude file and must not sit in Claude's dir.
+    supercmo_json = os.path.join(repo_root, ".supercmo-plugin", "supercmo.json")
     if os.path.exists(supercmo_json):
         try:
             with open(supercmo_json, "r", encoding="utf-8") as f:
