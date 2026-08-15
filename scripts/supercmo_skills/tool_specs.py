@@ -457,9 +457,12 @@ VIDEO_STITCH_DESCRIPTION = (
     "each clip's audio kept — this assembles existing clips, it does not generate new video. Use it "
     "to build a video longer than a single model clip: generate the shots with video_generate, then "
     "stitch them. Do NOT use it for a single clip, or for a batch of clips meant to stay separate. "
-    "Optionally lay a background-music track under the whole thing (pass `music`) or burn in "
-    "subtitles from an SRT file (pass `subtitles`); clips of different sizes are scaled to a common "
-    "frame. Returns the output file `path` with its duration, resolution, and size, or a structured "
+    "Three optional layers, each its own parameter: lay a voiceover over the picture (pass "
+    "`narration` — ONE take per clip, in clip order, NOT one joined track; each take is aligned to "
+    "its own clip so nothing drifts), lay a background-music track under the whole thing (pass "
+    "`music`), or burn in subtitles from an SRT file (pass `subtitles`); clips of different sizes "
+    "are scaled to a common frame. Returns the output file `path` with its duration, resolution, "
+    "and size, or a structured "
     "error with a hint. Requires ffmpeg on the system. Set dry_run=true to preview the plan without "
     "running anything."
 )
@@ -471,6 +474,15 @@ VIDEO_STITCH_PROPERTIES = {
         "minItems": 2,
         "description": "The clips to join, in play order — local file paths (e.g. the `path` a "
         "video_generate result returns) or direct http(s) video URLs. At least two.",
+    },
+    "narration": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Optional voiceover — ONE audio take per clip, in the same order and the same "
+        "count as `clips`. Each take is padded with silence to its clip's length, so take N is heard "
+        "over clip N with no timecodes to keep in sync. The narration sits at full level and the "
+        "clips' own audio is ducked beneath it. A take longer than the clip it belongs to is an "
+        "error naming that clip, never a truncation — shorten the line and re-voice that one take.",
     },
     "music": {
         "type": "string",

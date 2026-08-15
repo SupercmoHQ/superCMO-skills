@@ -22,6 +22,7 @@ def video_stitch(args):
         clips=args.get("clips"),
         music=args.get("music"),
         subtitles=args.get("subtitles"),
+        narration=args.get("narration"),
         output=args.get("output"),
         dry_run=bool(args.get("dry_run", False)),
     )

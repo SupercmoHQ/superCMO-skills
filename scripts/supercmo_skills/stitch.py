@@ -67,6 +67,40 @@ def _probe(path):
     return dur, (f"{r[0]}x{r[1]}" if r else None), size
 
 
+def _dur(path):
+    """Duration in seconds, or None."""
+    return _probe(path)[0]
+
+
+def _build_narration(ffmpeg, takes, clip_durations, workdir):
+    """One continuous narration track aligned to the clips: take N starts where clip N starts, and is
+    padded with silence to that clip's length. Returns (path, None) | (None, error). A take longer than
+    its clip is an error, not a truncation — the fix is a shorter line, never a faster read."""
+    padded = []
+    for i, (take, clip_len) in enumerate(zip(takes, clip_durations)):
+        take_len = _dur(take)
+        if clip_len and take_len and take_len > clip_len + 0.05:
+            return None, (f"narration take {i + 1} runs {take_len:.1f}s but clip {i + 1} is only "
+                          f"{clip_len:.1f}s — shorten the line and re-voice that take")
+        out = os.path.join(workdir, f"vo_{i}.wav")
+        # pad to the clip's length so the next take starts exactly on the next clip
+        rc, err = _run([ffmpeg, "-y", "-i", take, "-af",
+                        f"apad=whole_dur={clip_len}" if clip_len else "anull",
+                        "-ar", "48000", "-ac", "2", out])
+        if rc != 0 or not _ok(out):
+            return None, f"could not prepare narration take {i + 1}: {err[-300:]}"
+        padded.append(out)
+    listing = os.path.join(workdir, "vo.txt")
+    with open(listing, "w") as fh:
+        for p in padded:
+            fh.write(f"file '{p}'\n")
+    joined = os.path.join(workdir, "narration.wav")
+    rc, err = _run([ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", listing, "-c", "copy", joined])
+    if rc != 0 or not _ok(joined):
+        return None, f"could not join the narration takes: {err[-300:]}"
+    return joined, None
+
+
 def _run(cmd, cwd=None, timeout=1200):
     try:
         p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
@@ -104,13 +138,20 @@ def _concat_scaled(ffmpeg, clips, target, out):
                  "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", out])
 
 
-def video_stitch(clips, music=None, subtitles=None, output=None, output_dir=None, dry_run=False):
+def video_stitch(clips, music=None, subtitles=None, narration=None, output=None, output_dir=None,
+                 dry_run=False):
     """Concatenate `clips` (paths or URLs) in order into one video with hard cuts, audio kept.
-    Optional background `music` (mixed under) and burned-in `subtitles` (SRT). Returns
+    Optional `narration` (one take per clip, laid over with the clips' own audio ducked under),
+    background `music` (mixed under) and burned-in `subtitles` (SRT). Returns
     {ok, path, clips, duration, resolution, size_bytes} | {ok: False, error, hint?/detail?}."""
     if not isinstance(clips, list) or len(clips) < 2:
         return {"ok": False, "error": "clips must be a list of at least two video files, in play order.",
                 "hint": "a single clip needs no stitching — pass two or more"}
+    if narration is not None:
+        if not isinstance(narration, list) or len(narration) != len(clips):
+            return {"ok": False,
+                    "error": "narration must be a list with one audio take per clip, in the same order.",
+                    "hint": f"{len(clips)} clips were passed, so pass {len(clips)} takes"}
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         return {"ok": False, "error": "ffmpeg is not installed or not on PATH.",
@@ -123,7 +164,9 @@ def video_stitch(clips, music=None, subtitles=None, output=None, output_dir=None
     if dry_run:
         return {"ok": True, "_dry_run": True, "clips": clips, "output": out_path,
                 "music": bool(music), "subtitles": bool(subtitles),
-                "plan": "concat in order (hard cuts); scale mismatched clips; burn subtitles; overlay music"}
+                "narration": [{"clip": i + 1, "take": t} for i, t in enumerate(narration or [])],
+                "plan": "concat in order (hard cuts); scale mismatched clips; burn subtitles; "
+                        "lay narration over with clip audio ducked under; overlay music"}
 
     workdir = tempfile.mkdtemp(prefix="supercmo_stitch_")
     try:
@@ -138,6 +181,12 @@ def video_stitch(clips, music=None, subtitles=None, output=None, output_dir=None
             music_path, err = _resolve(music, workdir, "music.mp3")
             if err:
                 return {"ok": False, "error": f"music: {err}"}
+        takes = []
+        for i, n in enumerate(narration or []):
+            path, err = _resolve(n, workdir, f"vo_src_{i}.wav")
+            if err:
+                return {"ok": False, "error": f"narration take {i + 1}: {err}"}
+            takes.append(path)
         if subtitles:
             srt_resolved, err = _resolve(subtitles, workdir, "subs.srt")
             if err:
@@ -162,6 +211,22 @@ def video_stitch(clips, music=None, subtitles=None, output=None, output_dir=None
             return {"ok": False, "error": "ffmpeg could not concatenate the clips.",
                     "hint": "confirm the clips are valid video files", "detail": err[-500:]}
         stage = cat
+
+        # 1b) Lay the narration over, one take per clip, with the clips' own audio ducked beneath it.
+        if takes:
+            vo, err = _build_narration(ffmpeg, takes, [_dur(p) for p in resolved], workdir)
+            if err:
+                return {"ok": False, "error": err,
+                        "hint": "one take per clip, each no longer than the clip it belongs to"}
+            voiced = os.path.join(workdir, "voiced.mp4")
+            rc, err = _run([ffmpeg, "-y", "-i", stage, "-i", vo, "-filter_complex",
+                            "[0:a]volume=0.25[amb];[1:a]volume=1.0[vo];"
+                            "[amb][vo]amix=inputs=2:duration=first:dropout_transition=0[a]",
+                            "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", voiced])
+            if rc != 0 or not _ok(voiced):
+                return {"ok": False, "error": "ffmpeg could not lay the narration over the clips.",
+                        "hint": "check the takes are valid audio files", "detail": err[-500:]}
+            stage = voiced
 
         # 2) Burn in subtitles (re-encodes the video). Run in workdir so the filter reads `subs.srt`.
         if subtitles:

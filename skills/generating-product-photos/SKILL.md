@@ -1,7 +1,7 @@
 ---
 name: generating-product-photos
 description: |
-  ALWAYS read this skill before generating a product photography — before writing any prompt or calling image_generate. Turns a product photo or URL into commercial photography - packshots, lifestyle and campaign frames, on-model, macro detail, flat lays, seasonal staging, infographics, concepts and floating shots. Reads the real product first and holds it identical across every frame. Triggers: "product photo", "packshot", "shoot my product", "studio shot", "lifestyle shot", "hero image", "on a model", "flat lay", "product infographic", "floating product", "product ad".
+  ALWAYS read this skill before generating a product photography — before writing any prompt or calling image_generate. Turns a product photo or URL into commercial photography - packshots, lifestyle and campaign frames, on-model, macro detail, flat lays, seasonal staging, infographics, concepts and floating shots. Reads the real product first and holds it identical across every frame. Triggers: "product photo", "packshot", "shoot my product", "studio shot", "lifestyle shot", "hero image", "on a model", "flat lay", "product infographic", "floating product".
 license: Apache-2.0
 metadata:
   version: "0.2.0"
@@ -12,7 +12,7 @@ metadata:
 # Product Photography
 
 Turn a product into commercial imagery via the `image_generate` tool.
-Marketplace listing galleries are out of scope. Anything whose subject isn't a product should not be created with this skill.
+Marketplace listing galleries are out of scope, and a finished advertisement — one built on a headline, an offer, a call to action, or a promotional before/after or comparison — belongs to `generating-image-ads`, not here. Anything whose subject isn't a product should not be created with this skill.
 
 ## Workflow
 
@@ -60,7 +60,7 @@ A missing product image is the one thing still worth raising.
 | Texture, material, craft, a tight crop on the thing itself | **close-up** | `references/mode-close-up.md` |
 | Arranged on a surface, shot from directly above | **flat-lay** | `references/mode-flat-lay.md` |
 | Tied to a holiday, season or buying moment | **seasonal** | `references/mode-seasonal.md` |
-| Feature labels, callouts, specs or ad copy drawn onto the image — including an ad, a before-and-after or a comparison | **infographic** | `references/mode-infographic.md` |
+| Feature labels, callouts, specs or dimensions drawn onto the image — an informational before-and-after or comparison | **infographic** | `references/mode-infographic.md` |
 | Breaking the pattern to stop a scroll — unexpected, impossible, or unlike how this product is normally shown | **creative** | `references/mode-creative.md` |
 | Suspended mid-air, defying gravity | **floating** | `references/mode-floating.md` |
 

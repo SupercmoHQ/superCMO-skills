@@ -1,6 +1,6 @@
 {
   "name": "@supercmo/skills",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Install the SuperCMO plugin (MCP server + skills + command) into any popular AI-agent host.",
   "bin": {
     "supercmo-install": "bin/install.js"

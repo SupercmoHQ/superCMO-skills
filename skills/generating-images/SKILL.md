@@ -15,9 +15,10 @@ Turn a brief — text, optionally with reference image(s) — into a still image
 recipe** (only when the deliverable is a known one).
 
 **Before you route:** if the brief is commercial **product photography** — a packshot, a product in
-a styled scene, a hero or banner for a product, a product ad or carousel, an on-model or try-on shot,
+a styled scene, a hero or banner for a product, an on-model or try-on shot,
 or restyling an existing product photo — hand off to the **`generating-product-photos`** skill, which
-owns that surface. Stay here for everything else: general images, graphics and posters, portraits,
+owns that surface. If it is a **product advertisement** — a headline, an offer or a call to action drawn
+over the product, a promotional before/after or comparison — hand off to **`generating-image-ads`**. Stay here for everything else: general images, graphics and posters, portraits,
 illustrations, cinematic stills, infographics, and one-off reference edits.
 
 ## Workflow
