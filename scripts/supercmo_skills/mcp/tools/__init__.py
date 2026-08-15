@@ -5,5 +5,11 @@ from . import video  # noqa: F401
 from . import audio  # noqa: F401
 from . import extract  # noqa: F401
 from . import analyze  # noqa: F401
+from . import research  # noqa: F401
+from . import transcribe  # noqa: F401
 from . import stitch  # noqa: F401
+from . import caption_video  # noqa: F401
+from . import audio_mix  # noqa: F401
+from . import reframe  # noqa: F401
+from . import video_overlay  # noqa: F401
 from . import jobs  # noqa: F401

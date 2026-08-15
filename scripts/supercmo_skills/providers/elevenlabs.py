@@ -5,8 +5,10 @@ list_voices — there is no name lookup and no fallback voice. Returns raw audio
 base64 in the envelope.
 """
 import base64
+import json
 import os
 import urllib.parse
+import uuid
 
 import supercmo_env
 
@@ -85,6 +87,8 @@ def audio_validate(payload):
 
 
 def audio_generate(route, payload, key):
+    if payload.get("type") == "sfx":                             # sound effects: a different endpoint
+        return _sfx_generate(payload, key)
     err = audio_validate(payload)
     if err:
         return err
@@ -99,9 +103,108 @@ def audio_generate(route, payload, key):
 
 
 def audio_request_spec(route, payload):
+    if payload.get("type") == "sfx":
+        return {"method": "POST", "url": f"{_BASE}/sound-generation",
+                "headers": {"xi-api-key": "***", "Content-Type": "application/json"},
+                "body": {"text": payload.get("prompt") or payload.get("text", ""),
+                         "duration_seconds": payload.get("duration")}}
     return {"method": "POST", "url": _url(payload),
             "headers": {"xi-api-key": "***", "Content-Type": "application/json"},
             "body": _build_body(route, payload)}
+
+
+def _sfx_generate(payload, key):
+    """Sound effects from a text prompt via /v1/sound-generation (synchronous; returns audio bytes).
+    No voice, no model in the URL — a description and an optional duration."""
+    fmt = _fmt(payload)
+    url = f"{_BASE}/sound-generation?output_format={_OUTPUT_FORMAT.get(fmt, _OUTPUT_FORMAT[_DEFAULT_FORMAT])}"
+    body = {"text": payload.get("prompt") or payload.get("text", "")}
+    if payload.get("duration") is not None:
+        body["duration_seconds"] = float(payload["duration"])
+    data, ctype, status, err = supercmo_env._request_raw("POST", url, body=body, headers={"xi-api-key": key})
+    if data is None:
+        return {"ok": False, "error": f"sound generation failed ({status})", "detail": (err or "")[:500]}
+    return {"ok": True, "model": payload.get("model"),
+            "audio": {"b64": base64.b64encode(data).decode("ascii"),
+                      "content_type": _CONTENT_TYPE.get(fmt) or ctype or "audio/mpeg"}}
+
+
+# --- speech-to-text (Scribe) --------------------------------------------------------------------
+_STT_URL = f"{_BASE}/speech-to-text"
+
+
+def _encode_multipart(fields, file_field=None, file_bytes=None, filename="audio"):
+    """Build a multipart/form-data body (bytes) + its Content-Type header. Stdlib only."""
+    boundary = uuid.uuid4().hex
+    out = []
+    for name, value in fields.items():
+        out.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n"
+                   f"{value}\r\n".encode("utf-8"))
+    if file_field and file_bytes is not None:
+        out.append((f"--{boundary}\r\nContent-Disposition: form-data; name=\"{file_field}\"; "
+                    f"filename=\"{filename}\"\r\nContent-Type: application/octet-stream\r\n\r\n"
+                    ).encode("utf-8"))
+        out.append(file_bytes)
+        out.append(b"\r\n")
+    out.append(f"--{boundary}--\r\n".encode("utf-8"))
+    return b"".join(out), f"multipart/form-data; boundary={boundary}"
+
+
+def _stt_words(parsed):
+    """STT tokens -> [{word, start, end}] (drop spacing / audio-event tokens)."""
+    words = []
+    for w in parsed.get("words") or []:
+        if isinstance(w, dict) and w.get("type", "word") == "word" and w.get("text"):
+            words.append({"word": w["text"], "start": w.get("start"), "end": w.get("end")})
+    return words
+
+
+def transcribe_generate(route, payload, key):
+    """Transcribe audio -> {ok, text, words:[{word,start,end}], duration, language}. Accepts a local
+    file path (uploaded as multipart bytes — the BYOK case) or an http(s) URL (passed as
+    cloud_storage_url — the managed/hosted case). Never raises."""
+    audio = payload.get("audio")
+    if not audio or not isinstance(audio, str):
+        return {"ok": False, "error": "audio is required (a file path or an http(s) URL)."}
+    fields = {"model_id": route["id"], "timestamps_granularity": "word"}
+    if payload.get("language"):
+        fields["language_code"] = payload["language"]
+    if audio.startswith(("http://", "https://")):
+        fields["cloud_storage_url"] = audio
+        body, ctype = _encode_multipart(fields)
+    else:
+        path = os.path.abspath(os.path.expanduser(audio))
+        if not os.path.isfile(path):
+            return {"ok": False, "error": f"audio file not found: {audio}"}
+        try:
+            with open(path, "rb") as fh:
+                raw = fh.read()
+        except OSError as e:
+            return {"ok": False, "error": f"could not read audio: {e}"}
+        body, ctype = _encode_multipart(fields, "file", raw, os.path.basename(path))
+    data, _rct, status, err = supercmo_env._request_raw(
+        "POST", _STT_URL, raw_body=body, content_type=ctype, headers={"xi-api-key": key})
+    if data is None:
+        return {"ok": False, "error": f"transcription failed ({status})", "detail": (err or "")[:500]}
+    try:
+        parsed = json.loads(data.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as e:
+        return {"ok": False, "error": f"could not parse transcription response: {e}"}
+    words = _stt_words(parsed)
+    duration = parsed.get("duration") or (words[-1]["end"] if words and words[-1].get("end") else None)
+    return {"ok": True, "model": payload.get("model"), "text": parsed.get("text", ""),
+            "words": words, "language": parsed.get("language_code"), "duration": duration}
+
+
+def transcribe_request_spec(route, payload):
+    audio = payload.get("audio")
+    body = {"model_id": route["id"], "timestamps_granularity": "word"}
+    if isinstance(audio, str) and audio.startswith(("http://", "https://")):
+        body["cloud_storage_url"] = audio
+    else:
+        body["file"] = f"<{os.path.basename(str(audio or 'audio'))}>"
+    return {"method": "POST", "url": _STT_URL,
+            "headers": {"xi-api-key": "***", "Content-Type": "multipart/form-data"}, "body": body}
 
 
 # Vendor keys are permission-scoped: a key minted with only text-to-speech rights returns 401

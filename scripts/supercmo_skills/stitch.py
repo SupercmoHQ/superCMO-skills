@@ -138,11 +138,45 @@ def _concat_scaled(ffmpeg, clips, target, out):
                  "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", out])
 
 
+def _clip_src(clip):
+    """A clip is a path/URL string, or an object {clip|url|path, in, out} to trim before joining.
+    Returns (src, in_seconds, out_seconds)."""
+    if isinstance(clip, dict):
+        return (clip.get("clip") or clip.get("url") or clip.get("path"),
+                clip.get("in"), clip.get("out"))
+    return clip, None, None
+
+
+def _trim(ffmpeg, path, t_in, t_out, workdir, i):
+    """Cut [t_in, t_out] seconds out of `path` (re-encode for an accurate cut). (trimmed, None) |
+    (None, error). Never raises: non-numeric or out-of-range in/out return a structured error."""
+    out = os.path.join(workdir, f"trim_{i}.mp4")
+    try:
+        start = float(t_in) if t_in is not None else 0.0
+        stop = float(t_out) if t_out is not None else None
+    except (TypeError, ValueError):
+        return None, f"in/out must be numbers of seconds; got in={t_in!r}, out={t_out!r}"
+    if start < 0 or (stop is not None and stop <= start):
+        return None, f"trim needs 0 <= in < out (seconds); got in={start}, out={stop}"
+    cmd = [ffmpeg, "-y"]
+    if start:
+        cmd += ["-ss", str(start)]
+    cmd += ["-i", path]
+    if stop is not None:
+        cmd += ["-t", str(stop - start)]
+    cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", out]
+    rc, err = _run(cmd)
+    if rc != 0 or not _ok(out):                                  # includes in >= clip duration (empty cut)
+        return None, f"could not trim (in={t_in}, out={t_out}): {err[-200:]}"
+    return out, None
+
+
 def video_stitch(clips, music=None, subtitles=None, narration=None, output=None, output_dir=None,
                  dry_run=False):
-    """Concatenate `clips` (paths or URLs) in order into one video with hard cuts, audio kept.
-    Optional `narration` (one take per clip, laid over with the clips' own audio ducked under),
-    background `music` (mixed under) and burned-in `subtitles` (SRT). Returns
+    """Concatenate `clips` in order into one video with hard cuts, audio kept. Each clip is a path
+    or URL, or an object {clip, in, out} to trim to [in, out] seconds before joining. Optional
+    `narration` (one take per clip, laid over with the clips' own audio ducked under), background
+    `music` (mixed under) and burned-in `subtitles` (SRT). Returns
     {ok, path, clips, duration, resolution, size_bytes} | {ok: False, error, hint?/detail?}."""
     if not isinstance(clips, list) or len(clips) < 2:
         return {"ok": False, "error": "clips must be a list of at least two video files, in play order.",
@@ -172,9 +206,16 @@ def video_stitch(clips, music=None, subtitles=None, narration=None, output=None,
     try:
         resolved = []
         for i, c in enumerate(clips):
-            path, err = _resolve(c, workdir, f"clip_{i}.mp4")
+            src, t_in, t_out = _clip_src(c)
+            if not src:
+                return {"ok": False, "error": f"clip {i}: missing a file path or URL."}
+            path, err = _resolve(src, workdir, f"clip_{i}.mp4")
             if err:
                 return {"ok": False, "error": err}
+            if t_in is not None or t_out is not None:
+                path, err = _trim(ffmpeg, path, t_in, t_out, workdir, i)
+                if err:
+                    return {"ok": False, "error": f"clip {i}: {err}"}
             resolved.append(path)
         music_path = None
         if music:

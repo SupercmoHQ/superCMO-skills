@@ -1,6 +1,6 @@
 ---
 name: generating-audio
-description: ALWAYS read this skill before generating spoken audio or calling audio_generate — a voiceover, narration, an ad read, a character line, or any script read aloud. Turns a script into speech — picks the model and voice, prepares the text for reading, and splits a long script into clips. Use whenever the user asks for text-to-speech, a voiceover, narration, or to have something read or spoken aloud.
+description: ALWAYS read this skill before generating any standalone audio or calling audio_generate — a voiceover, narration, an ad read, a character line, a script read aloud, a background-music bed, or a sound effect. Turns a script into speech — picks the model and voice, prepares the text for reading, and splits a long script into clips — and also makes music and sound effects from a description. Use whenever the user asks for text-to-speech, a voiceover, narration, background music, a sound effect, or to have something read or spoken aloud.
 license: Apache-2.0
 metadata:
   version: "0.1.0"
@@ -13,8 +13,11 @@ metadata:
 Turn a script into spoken audio via the `audio_generate` tool. Two decisions drive quality: **which
 voice** reads it, and **how the script is written for the ear**.
 
-**Scope.** Speech — a voice reading written words, delivered as its own audio file. Nothing here makes
-non-speech sound, alters audio that already exists, or combines two tracks into one.
+**Scope.** Standalone audio via `audio_generate`, in three modes set by `type`: **speech** (a voice
+reading written words — the focus of this skill), **music** (an instrumental bed from a description),
+and **sfx** (a short sound effect from a description). For music and sfx, describe the sound in `text`
+and set `duration` in seconds; no voice is used. To layer a voiceover under a music bed (ducked) or
+drop sound effects at offsets, use `audio_mix`.
 
 Lip-synced dialogue spoken by a character *inside* a video clip belongs to `generating-videos`.
 

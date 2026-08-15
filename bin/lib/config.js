@@ -48,6 +48,9 @@ function ensureKeyFile() {
     '# url extraction (optional) — https://www.firecrawl.dev/app/api-keys',
     'FIRECRAWL_API_KEY=',
     '',
+    '# social research (optional) — https://scrapecreators.com',
+    'SCRAPECREATORS_API_KEY=',
+    '',
   ].join('\n');
   fs.writeFileSync(file, body, { mode: 0o600 });
   return { file, created: true };

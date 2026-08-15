@@ -11,9 +11,15 @@ proxy) and vendor translation live here, never in the tool/skill layer.
 from . import catalog
 from .client import (
     audio_generate, batch_envelope, image_analysis, image_generate, is_pending, job_ok, job_status,
-    list_voices, max_parallel, url_extraction, video_analysis, video_generate)
+    list_voices, max_parallel, social_research, transcribe, url_extraction, video_analysis,
+    video_generate)
 from .stitch import video_stitch
+from .caption_video import caption_video
+from .audio_mix import audio_mix
+from .reframe import reframe
+from .video_overlay import video_overlay
 
 __all__ = ["image_generate", "video_generate", "audio_generate", "list_voices", "url_extraction",
-           "image_analysis", "video_analysis", "video_stitch", "job_status",
-           "job_ok", "is_pending", "batch_envelope", "max_parallel", "catalog"]
+           "image_analysis", "video_analysis", "video_stitch", "caption_video", "audio_mix",
+           "reframe", "video_overlay", "transcribe", "job_status", "social_research", "job_ok",
+           "is_pending", "batch_envelope", "max_parallel", "catalog"]
