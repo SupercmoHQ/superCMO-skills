@@ -1,0 +1,44 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. Should-trigger cases cover the drawn/rendered video family, product-led: a cartoon character presenting a product, the product drawn into the style or kept as photographed inside it, an animated ad or explainer. A drawn look wins the routing even when the job is an ad. A product is required — a drawn video with nothing being sold routes to generating-videos. Negatives must route elsewhere: generating-ad-videos (photoreal/cinematic commercial), generating-ugc-videos (a real creator on camera), generating-videos (photoreal video, b-roll, animating a supplied photo, or a drawn story with no product), generating-images (a single still illustration), generating-product-photos (a product still), generating-audio (a voiceover alone).",
+  "schema_version": 2,
+  "trigger_keywords": [
+    "cartoon",
+    "cartoon video",
+    "cartoon ad",
+    "animated ad",
+    "animated video",
+    "animated short",
+    "animated story",
+    "animated explainer",
+    "animated commercial",
+    "animated mascot",
+    "mascot video",
+    "make an animation",
+    "anime style video",
+    "2d animation",
+    "hand-drawn animation",
+    "illustrated video",
+    "illustrated story",
+    "animated film"
+  ],
+  "cases": [
+    { "id": "tc_cartoon_ad", "query": "make a cartoon ad for our hot sauce", "expected_trigger": true },
+    { "id": "tc_character_presents", "query": "an animated video where a cartoon character shows off our water bottle", "expected_trigger": true },
+    { "id": "tc_product_drawn_in", "query": "I want our coffee bag drawn into a cartoon world for a short video", "expected_trigger": true },
+    { "id": "tc_mascot", "query": "animated mascot video for our brand, 30 seconds", "expected_trigger": true },
+    { "id": "tc_animated_explainer", "query": "make an animated explainer about how our app works, drawn not filmed", "expected_trigger": true },
+    { "id": "tc_anime_ad", "query": "anime style video advertising our energy drink", "expected_trigger": true },
+    { "id": "tc_illustrated_brand", "query": "an illustrated video in a painted storybook look for our tea brand", "expected_trigger": true },
+    { "id": "tc_2d_animation", "query": "produce a 2d animation showing our robot vacuum cleaning a house", "expected_trigger": true },
+    { "id": "tc_hand_drawn_product", "query": "hand-drawn animation of someone lacing up our new sneaker on a rooftop", "expected_trigger": true },
+
+    { "id": "tc_ignore_cinematic_ad", "query": "make a cinematic tv commercial for our energy drink", "expected_trigger": false },
+    { "id": "tc_ignore_ugc", "query": "make a UGC video of a creator reviewing our serum", "expected_trigger": false },
+    { "id": "tc_ignore_broll", "query": "make a video of waves crashing on a beach", "expected_trigger": false },
+    { "id": "tc_ignore_animate_photo", "query": "animate this photo with a slow push-in", "expected_trigger": false },
+    { "id": "tc_ignore_still_illustration", "query": "generate an illustration of a fox in a coffee shop", "expected_trigger": false },
+    { "id": "tc_ignore_packshot", "query": "clean studio packshot of my coffee bag on a plain background", "expected_trigger": false },
+    { "id": "tc_ignore_voiceover", "query": "record a voiceover reading this script", "expected_trigger": false },
+    { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. Should-trigger: writing the platform ad copy fields (headline, primary text, description, CTA, captions) for a paid ad, one channel or several. Should-not-trigger: the text drawn ON the image / the creative itself (generating-image-ads), a spoken voiceover or video script (writing-video-scripts), long-form copy (blog/email/landing page), and an off-topic control. Text-only deliverable — nothing generated.",
+  "schema_version": 2,
+  "trigger_keywords": [
+    "ad copy",
+    "write ad copy",
+    "ad text",
+    "primary text",
+    "intro text",
+    "ad headline",
+    "ad headlines",
+    "ad description",
+    "ad captions",
+    "meta ad copy",
+    "facebook ad copy",
+    "instagram ad copy",
+    "google ad headlines",
+    "linkedin ad copy",
+    "rsa headlines",
+    "call to action copy",
+    "write the copy for my ad"
+  ],
+  "cases": [
+    { "id": "tc_generic", "query": "write ad copy for my protein powder", "expected_trigger": true },
+    { "id": "tc_meta", "query": "i need meta ad copy — primary text, headline and description", "expected_trigger": true },
+    { "id": "tc_google", "query": "write google rsa headlines and descriptions for my search ads", "expected_trigger": true },
+    { "id": "tc_variants", "query": "give me a few ad copy variants across different angles for our launch", "expected_trigger": true },
+    { "id": "tc_linkedin", "query": "write the intro text and headline for a linkedin sponsored post", "expected_trigger": true },
+    { "id": "tc_cta", "query": "write the primary text and call to action for my facebook ad", "expected_trigger": true },
+    { "id": "tc_ignore_onimage", "query": "put the headline text on the image itself for my ad", "expected_trigger": false },
+    { "id": "tc_ignore_creative", "query": "make an image ad for my sneakers", "expected_trigger": false },
+    { "id": "tc_ignore_vo", "query": "write a voiceover script for my product video", "expected_trigger": false },
+    { "id": "tc_ignore_script", "query": "write the script for a 30 second video ad", "expected_trigger": false },
+    { "id": "tc_ignore_blog", "query": "write a blog post about our new launch", "expected_trigger": false },
+    { "id": "tc_ignore_email", "query": "draft a marketing email newsletter for our list", "expected_trigger": false },
+    { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

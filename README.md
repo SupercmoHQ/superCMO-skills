@@ -21,12 +21,21 @@ Just provide a product photo and a brief. The agent extracts the product details
 <details open>
 <summary><strong>UGC video</strong></summary>
 
-> ```
-> create an ugc video for this tshirt. it should be a get ready with me reel. snappy. very genz. [product-photo]
-> ```
+> `create an ugc video for this tshirt. it should be a get ready with me reel. snappy. very genz. [product-photo]`
 
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/d9daa15f-c534-497e-8e35-6e497b7eaa05" width="360" controls></video>
+  <video src="https://github.com/user-attachments/assets/d9daa15f-c534-497e-8e35-6e497b7eaa05" width="300" controls></video>
+</div>
+
+</details>
+
+<details open>
+<summary><strong>Cartoon video ad</strong></summary>
+
+> `create a cartoon video ad in stylized 3D style, promoting my tumbler. make it fun and entertaining. [product-photo]`
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/45bff56d-ce38-43de-b555-63bb939ebfbb" width="300" controls></video>
 </div>
 
 </details>
@@ -34,12 +43,10 @@ Just provide a product photo and a brief. The agent extracts the product details
 <details open>
 <summary><strong>Product ad video</strong></summary>
 
-> ```
-> make me an ad video for this energy drink [product-photo]
-> ```
+> `make me an ad video for this energy drink [product-photo]`
 
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/ab64d169-743f-444a-a7a4-ccae571b0ea4" width="360" controls></video>
+  <video src="https://github.com/user-attachments/assets/ab64d169-743f-444a-a7a4-ccae571b0ea4" width="300" controls></video>
 </div>
 
 </details>
@@ -73,7 +80,7 @@ The AI agent then plans the video → writes the script → generates the AI act
 The best part? You stay in charge all along.
 
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/08a2f818-b56d-488a-8029-57ad6ad3cd0a" width="800" controls></video>
+  <video src="https://github.com/user-attachments/assets/08a2f818-b56d-488a-8029-57ad6ad3cd0a" width="680" controls></video>
 </div>
 
 ---
@@ -181,11 +188,14 @@ These are the discrete skills installed into your agent to run that pipeline:
 | [generating-ad-videos](skills/generating-ad-videos/) | Produces a polished, cinematic product commercial in your brand's voice — a no-actor product showcase or an actor-led story ad, at any length. It storyboards every clip to hold your real product identical across cuts, writes the voiceover and casts the actor when the ad calls for one, then stitches it into one ready-to-run spot you approve step by step before anything expensive renders. |
 | [generating-ai-actors](skills/generating-ai-actors/) | Casts a distinct, demographic-specific AI actor as a reusable identity reference, allowing you to reliably feature the exact same brand face across an entire multi-asset image and video campaign. |
 | [generating-audio](skills/generating-audio/) | Converts scripts into audio. Lets you preview voice candidates from top models before generating. It then formats your script's numbers, dates, and URLs so the chosen AI model pronounces them accurately. |
+| [generating-cartoon-videos](skills/generating-cartoon-videos/) | Produces a drawn, animated video for your product — cartoon, anime, illustrated or painted, at any length. Your product either stays exactly as photographed or is drawn into the style, and a cast of characters carries the story around it. It settles one art style, writes the story, draws your cast once so every cut is the same cast, then films it clip by clip and lays a voiceover over the top — with your approval before anything expensive renders. |
+| [generating-image-ads](skills/generating-image-ads/) | Produces a scroll-stopping image ads for your product — one image, or a set in every placement ratio your feed needs. It keeps your real product and your brand identity perfectly consistent across every frame, and shapes the offer and claims you give it into a well designed ad, following industry best practices. |
 | [generating-images](skills/generating-images/) | Routes your brief to the best of 10+ SOTA image models (like Nano Banana, GPT Image), writes detailed prompts as per model specifications and generates multiple variations instantly. |
 | [generating-product-photos](skills/generating-product-photos/) | Directs a commercial photoshoot around your product, automatically applying the correct lighting, framing, camera angles and props to deliver studio-quality product shots across 10+ formats. |
 | [generating-storyboards](skills/generating-storyboards/) | Draws out your entire video concept clip-by-clip as static images, enforcing strict character and product continuity so you can approve camera angles and visual flow before committing to expensive video renders. |
 | [generating-ugc-videos](skills/generating-ugc-videos/) | Produces UGC videos of any length - like review, unboxing, try-on, tutorial and more. It casts the actor, writes the script, and storyboards multiple clips to lock in actor and product consistency. It lets you direct every step to get a cohesive, ready-to-run ad in minutes. |
 | [generating-videos](skills/generating-videos/) | Routes your brief to the best of 10+ SOTA video models (like Veo, Seedance), writes detailed prompts as per model specifications and generates multi-clip stories that hold continuity across cuts, stitched into one file. |
+| [writing-ad-copy](skills/writing-ad-copy/) | Writes the text that runs alongside your ad — headline, primary text, description and call to action — tuned to the fields and best practices of each platform it runs on: Facebook and Instagram, Google Search, LinkedIn, TikTok, X and Reddit. It works one angle several ways and sizes each field so nothing gets cut off in the feed. |
 | [writing-video-prompts](skills/writing-video-prompts/) | Translates your scenes into the highly specific, detailed instructions that different video models require. It times the camera motion and steers around known AI rendering limits to match your exact visual brief. |
 | [writing-video-scripts](skills/writing-video-scripts/) | Drafts spoken scripts built around proven opening hooks designed specifically to stop the scroll. It sizes the text to fit your exact runtime and paces words across natural breath points for human delivery. |
 <!-- SKILLS:END -->
