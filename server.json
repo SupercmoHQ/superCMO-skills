@@ -4,7 +4,7 @@
   "description": "Marketing media generation — image, video, voice — for AI agents. BYO keys.",
   "title": "SuperCMO",
   "websiteUrl": "https://getsupercmo.ai",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "repository": {
     "url": "https://github.com/SupercmoHQ/superCMO-skills",
     "source": "github"
@@ -14,14 +14,15 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "supercmo-skills",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         { "name": "WAVESPEED_API_KEY", "description": "WaveSpeed key — image + video (recommended)", "isSecret": true },
         { "name": "FAL_KEY", "description": "fal.ai key — image + video", "isSecret": true },
         { "name": "ELEVENLABS_API_KEY", "description": "ElevenLabs key — voiceover", "isSecret": true },
         { "name": "GEMINI_API_KEY", "description": "Gemini key — image/video analysis", "isSecret": true },
-        { "name": "FIRECRAWL_API_KEY", "description": "Firecrawl key — URL extraction", "isSecret": true }
+        { "name": "FIRECRAWL_API_KEY", "description": "Firecrawl key — URL extraction", "isSecret": true },
+        { "name": "SCRAPECREATORS_API_KEY", "description": "ScrapeCreators key — social research", "isSecret": true }
       ]
     }
   ]

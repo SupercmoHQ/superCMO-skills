@@ -1,6 +1,6 @@
 ---
 name: generating-audio
-description: ALWAYS read this skill before generating spoken audio or calling audio_generate — a voiceover, narration, an ad read, a character line, or any script read aloud. Turns a script into speech — picks the model and voice, prepares the text for reading, and splits a long script into clips. Use whenever the user asks for text-to-speech, a voiceover, narration, or to have something read or spoken aloud.
+description: ALWAYS read this skill before generating any standalone audio or calling audio_generate — a voiceover, narration, an ad read, a character line, a script read aloud, a background-music bed, or a sound effect. Turns a script into speech — picks the model and voice, prepares the text for reading, and splits a long script into clips — and also makes music and sound effects from a description. Use whenever the user asks for text-to-speech, a voiceover, narration, background music, a sound effect, or to have something read or spoken aloud.
 license: Apache-2.0
 metadata:
   version: "0.1.0"
@@ -13,8 +13,11 @@ metadata:
 Turn a script into spoken audio via the `audio_generate` tool. Two decisions drive quality: **which
 voice** reads it, and **how the script is written for the ear**.
 
-**Scope.** Speech — a voice reading written words, delivered as its own audio file. Nothing here makes
-non-speech sound, alters audio that already exists, or combines two tracks into one.
+**Scope.** Standalone audio via `audio_generate`, in three modes set by `type`: **speech** (a voice
+reading written words — the focus of this skill), **music** (an instrumental bed from a description),
+and **sfx** (a short sound effect from a description). For music and sfx, describe the sound in `text`
+and set `duration` in seconds; no voice is used. To layer a voiceover under a music bed (ducked) or
+drop sound effects at offsets, use `audio_mix`.
 
 Lip-synced dialogue spoken by a character *inside* a video clip belongs to `generating-videos`.
 
@@ -88,8 +91,11 @@ different voice, no access to the account's voices, and output outside the media
 
 Call `audio_generate` with a `requests` list — one object per clip, up to ten per call.
 
-- Per object: `text` and `voice` (both required — the `voice_id` from Step 3); `model` only when
-  Step 2 chose a non-default; `speed`, `stability`, `style`, `similarity_boost`, `format` as needed.
+- Per object: `text`, plus `voice` for speech (the `voice_id` from Step 3 — required for speech,
+  not used for `music`/`sfx`); `model` only when Step 2 chose a non-default; `speed`, `stability`,
+  `style`, `similarity_boost`, `format` as needed.
+- For a `music` or `sfx` object: set `type`, describe the sound in `text`, and give `duration` in
+  seconds — no voice, and Steps 2–4 don't apply.
 - **Split only where the audio will actually be cut** — per scene, or per section placed separately.
   Objects generate independently, so a continuous read split across two of them seams audibly.
 - **Hold one `voice` and `model` across every object**, for the same reason. In a dialogue, one voice
@@ -103,16 +109,21 @@ Share the audio file path(s). When the script was split, label each with the sec
 
 ## Edge cases
 
-- **Something other than speech is asked for** (music, sound effects, ambience, re-voicing, dubbing,
-  cloning a voice from a sample) → say so plainly rather than substituting something else. In
-  particular, do not generate a clip through `generating-videos` to get music or effects out of its
-  native audio: that bakes the sound into the picture, so it can never serve as a track the user
-  mixes. An already-cloned voice still works by its `voice_id`, and another language works by
-  translating the script and generating it fresh.
-- **Tracks need mixing or timing** ("the voiceover under the music", "a swoosh on the logo") → deliver
-  clean speech and let the user assemble it in their editor.
-- **Part of the brief is speech and part isn't** → state the limits in one message up front, then
-  deliver the speech. Never generate first and disclose the gaps after.
+- **Music, sound effects, ambience** → in scope: set `type: "music"` or `type: "sfx"`, describe the
+  sound in `text`, and set `duration` in seconds. Do not generate a clip through `generating-videos`
+  to get music or effects out of its native audio: that bakes the sound into the picture, so it can
+  never serve as a track to mix.
+- **Re-voicing, dubbing, or cloning a voice from a sample** → say so plainly rather than
+  substituting something else. An already-cloned voice still works by its `voice_id`, and another
+  language works by translating the script and generating it fresh.
+- **Tracks need mixing or timing** ("the voiceover under the music", "a swoosh on the logo") →
+  generate the parts here, then layer them with `audio_mix` (a voiceover ducked under a bed, effects
+  dropped at offsets). Hand off to the user's editor only when the layout outgrows what `audio_mix`
+  expresses.
+- **Part of the brief is speech and part isn't** → cover both: speech objects with a `voice`,
+  music/sfx objects with `type` + `duration`, then `audio_mix` when they must land in one track. If
+  some part is genuinely unsupported, state that limit up front — never generate first and disclose
+  the gaps after.
 - **Script over the model's character limit** → split it at a natural break, or switch to a
   higher-ceiling model.
 - **`error: "no_voices_available"`** → relay the hint; it distinguishes an empty account from a key
