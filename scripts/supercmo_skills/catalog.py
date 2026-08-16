@@ -496,7 +496,11 @@ VIDEO_MODELS = {
 }
 
 # audio: standalone audio deliverables. `type` selects the mode.
-AUDIO_TYPES = ["speech"]
+AUDIO_TYPES = ["speech", "music", "sfx"]
+
+# Default clip length (seconds) for the non-speech modes when the caller omits `duration` — billing
+# is per-second, so this must be concrete (never guessed at request time).
+AUDIO_DEFAULT_DURATION = {"music": 30, "sfx": 5}
 
 # Output container; each provider maps these onto its own format/sample-rate encoding.
 AUDIO_FORMATS = ["mp3", "wav", "pcm", "opus"]
@@ -531,6 +535,26 @@ AUDIO_MODELS = {
         "types": ["speech"],
         "routes": [_route("elevenlabs", "eleven_flash_v2_5", supports=_EL_SUPPORTS)],
     },
+    # --- non-speech modes (C7). Music is queue-based → `queued: True` routes it through the async
+    # lane (the async consumer reads this flag, and the skills provider exposes audio_submit/audio_status); SFX is
+    # fast and synchronous. Vendor endpoint ids are tunable constants — verify at the BYOK smoke. ---
+    "stable-audio": {
+        "display": "Music generation",
+        "strengths": "instrumental music beds and background tracks from a text prompt",
+        "price": "metered per second of audio",
+        "types": ["music"],
+        "queued": True,
+        "routes": [_route("fal", "fal-ai/stable-audio",
+                          supports={"prompt", "duration"})],   # format not wired on the fal music route
+    },
+    "eleven-sfx": {
+        "display": "Sound Effects generation",
+        "strengths": "short sound effects, ambience and foley from a text prompt",
+        "price": "metered per second of audio",
+        "types": ["sfx"],
+        "routes": [_route("elevenlabs", "eleven_sfx",
+                          supports={"prompt", "duration", "format"})],
+    },
 }
 
 # extraction: structured data (fields + image URLs) from any web/product page via a prompt/schema.
@@ -557,11 +581,224 @@ ANALYSIS_MODELS = {
 }
 
 
+# --- research: read-only public data from social platforms + ad libraries -------------------
+# One generic call shape (platform + endpoint + params). Each entry carries the vendor path (the
+# ALLOW-LIST — a caller never supplies a URL, the path is chosen by the platform/endpoint enum),
+# the params contract, a per-call credit cost, and a capability-shaped description (never
+# vendor-shaped, so another research vendor could back the same entries with no agent-contract
+# change). `cost_credits` is the endpoint's per-call credit cost. Every endpoint here is a GET read.
+RESEARCH_SOURCES = {
+    "meta_ad_library": {
+        "search_companies": {"path": "/v1/facebook/adLibrary/search/companies",
+            "required": ["query"], "optional": [], "cost_credits": 1,
+            "desc": "Find advertisers on Meta's Ad Library by name — returns each company's page id."},
+        "company_ads": {"path": "/v1/facebook/adLibrary/company/ads", "required": [],
+            "optional": ["companyName", "pageId", "country", "status", "media_type", "language",
+                         "sort_by", "start_date", "end_date", "cursor", "trim"], "cost_credits": 1,
+            "desc": "A competitor's active Meta ads (Facebook/Instagram) — pass companyName, or a "
+                    "pageId from search_companies. Filter by country, status, media_type, date range."},
+        "search_ads": {"path": "/v1/facebook/adLibrary/search/ads", "required": ["query"],
+            "optional": ["country", "status", "media_type", "cursor", "trim"], "cost_credits": 1,
+            "desc": "Search Meta Ad Library ads by keyword across advertisers."},
+    },
+    "linkedin_ads": {
+        "search": {"path": "/v1/linkedin/ads/search", "required": [],
+            "optional": ["company", "keyword", "companyId", "countries", "startDate", "endDate",
+                         "paginationToken"], "cost_credits": 1,
+            "desc": "Search LinkedIn ads — pass company, keyword, or companyId (+ optional countries, "
+                    "date range). Returns advertisers' ad creatives."},
+        "ad": {"path": "/v1/linkedin/ad", "required": ["url"], "optional": [], "cost_credits": 1,
+            "desc": "A single LinkedIn ad's details by URL."},
+    },
+    "instagram": {
+        "profile": {"path": "/v1/instagram/profile", "required": ["handle"], "optional": [],
+            "cost_credits": 1, "desc": "A public Instagram profile — bio, follower/following counts, verification."},
+        "posts": {"path": "/v1/instagram/user/reels", "required": ["handle"], "optional": ["max_id"],
+            "cost_credits": 1, "desc": "Recent reels/posts from an Instagram account (paginate with max_id)."},
+        "post": {"path": "/v1/instagram/post", "required": ["url"], "optional": [], "cost_credits": 1,
+            "desc": "A single Instagram post/reel by URL — caption, media, engagement."},
+        "transcript": {"path": "/v2/instagram/media/transcript", "required": ["url"], "optional": [],
+            "cost_credits": 1, "desc": "Spoken-word transcript of an Instagram reel/video."},
+    },
+    "tiktok": {
+        "profile": {"path": "/v1/tiktok/profile", "required": ["handle"], "optional": [],
+            "cost_credits": 1, "desc": "A public TikTok profile — bio, follower counts, verification."},
+        "posts": {"path": "/v3/tiktok/profile/videos", "required": ["handle"],
+            "optional": ["max_cursor", "sort_by"], "cost_credits": 1,
+            "desc": "Recent videos from a TikTok account (sort_by latest/popular; paginate with max_cursor)."},
+        "comments": {"path": "/v1/tiktok/video/comments", "required": ["url"], "optional": ["cursor"],
+            "cost_credits": 1, "desc": "Comments on a TikTok video by URL (audience listening)."},
+        "hashtag": {"path": "/v1/tiktok/search/hashtag", "required": ["hashtag"], "optional": ["cursor"],
+            "cost_credits": 1, "desc": "Videos for a TikTok hashtag (trend/topic discovery)."},
+        "search": {"path": "/v1/tiktok/search/keyword", "required": ["query"], "optional": ["cursor"],
+            "cost_credits": 1, "desc": "TikTok keyword video search (content / trend discovery)."},
+        "search_users": {"path": "/v1/tiktok/search/users", "required": ["query"], "optional": ["cursor"],
+            "cost_credits": 1, "desc": "Find TikTok creators by keyword."},
+        "trending": {"path": "/v1/tiktok/get-trending-feed", "required": ["region"], "optional": [],
+            "cost_credits": 1, "desc": "TikTok trending feed for a region (a 2-letter code, e.g. US)."},
+        "video": {"path": "/v2/tiktok/video", "required": ["url"], "optional": [], "cost_credits": 1,
+            "desc": "A single TikTok video by URL — caption, stats, author."},
+        "transcript": {"path": "/v1/tiktok/video/transcript", "required": ["url"], "optional": [],
+            "cost_credits": 1, "desc": "Spoken-word transcript of a TikTok video."},
+    },
+    "youtube": {
+        "search": {"path": "/v1/youtube/search", "required": ["query"], "optional": [], "cost_credits": 1,
+            "desc": "YouTube search results for a query — videos and channels."},
+        "channel": {"path": "/v1/youtube/channel", "required": ["handle"], "optional": [], "cost_credits": 1,
+            "desc": "A YouTube channel's public details and stats (pass an @handle)."},
+        "video": {"path": "/v1/youtube/video", "required": ["url"], "optional": [], "cost_credits": 1,
+            "desc": "A single YouTube video/short by URL — title, stats, metadata."},
+        "transcript": {"path": "/v1/youtube/video/transcript", "required": ["url"], "optional": [],
+            "cost_credits": 1, "desc": "Transcript of a YouTube video by URL."},
+    },
+    "reddit": {
+        "search": {"path": "/v1/reddit/search", "required": ["query"], "optional": ["sort", "after"],
+            "cost_credits": 1, "desc": "Reddit post search across subreddits for a keyword (audience listening)."},
+        "subreddit": {"path": "/v1/reddit/subreddit", "required": ["subreddit"], "optional": ["sort", "after"],
+            "cost_credits": 1, "desc": "Recent posts in a subreddit."},
+        "subreddit_details": {"path": "/v1/reddit/subreddit/details", "required": ["subreddit"],
+            "optional": [], "cost_credits": 1,
+            "desc": "A subreddit's about data — subscriber count, description, rules."},
+        "subreddit_search": {"path": "/v1/reddit/subreddit/search", "required": ["query"], "optional": [],
+            "cost_credits": 1, "desc": "Find subreddits by keyword."},
+        "comments": {"path": "/v1/reddit/post/comments", "required": ["url"], "optional": [],
+            "cost_credits": 1, "desc": "Comments on a Reddit post by URL (audience listening)."},
+        "transcript": {"path": "/v1/reddit/post/transcript", "required": ["url"], "optional": [],
+            "cost_credits": 1, "desc": "Transcript of a Reddit post's media by URL."},
+    },
+    "x": {
+        "profile": {"path": "/v1/twitter/profile", "required": ["handle"], "optional": [], "cost_credits": 1,
+            "desc": "A public X/Twitter profile — bio, follower/following counts, verification."},
+        "posts": {"path": "/v1/twitter/user-tweets", "required": ["handle"], "optional": [],
+            "cost_credits": 1, "desc": "Recent posts from an X/Twitter account."},
+        "post": {"path": "/v1/twitter/tweet", "required": ["url"], "optional": [], "cost_credits": 1,
+            "desc": "A single X/Twitter post by URL — text, author, engagement."},
+        "transcript": {"path": "/v1/twitter/tweet/transcript", "required": ["url"], "optional": [],
+            "cost_credits": 1, "desc": "Transcript of an X/Twitter post's video by URL."},
+    },
+    "linkedin": {
+        "profile": {"path": "/v1/linkedin/profile", "required": ["url"], "optional": [], "cost_credits": 1,
+            "desc": "A public LinkedIn person profile by URL."},
+        "company": {"path": "/v1/linkedin/company", "required": ["url"], "optional": [], "cost_credits": 1,
+            "desc": "A LinkedIn company page by URL."},
+        "post": {"path": "/v1/linkedin/post", "required": ["url"], "optional": [], "cost_credits": 1,
+            "desc": "A single LinkedIn post by URL."},
+    },
+    "threads": {
+        "profile": {"path": "/v1/threads/profile", "required": ["handle"], "optional": [], "cost_credits": 1,
+            "desc": "A public Threads profile — bio, follower counts."},
+        "posts": {"path": "/v1/threads/user/posts", "required": ["handle"], "optional": [],
+            "cost_credits": 1, "desc": "Recent posts from a Threads account."},
+        "post": {"path": "/v1/threads/post", "required": ["url"], "optional": [], "cost_credits": 1,
+            "desc": "A single Threads post by URL."},
+        "search": {"path": "/v1/threads/search", "required": ["query"], "optional": [],
+            "cost_credits": 1, "desc": "Threads keyword search (audience listening / trend discovery)."},
+        "search_users": {"path": "/v1/threads/search/users", "required": ["query"], "optional": [],
+            "cost_credits": 1, "desc": "Find Threads users by keyword."},
+    },
+    "pinterest": {
+        "search": {"path": "/v1/pinterest/search", "required": ["query"], "optional": ["cursor"],
+            "cost_credits": 1, "desc": "Pinterest pin search for a keyword (visual / product discovery)."},
+        "pin": {"path": "/v1/pinterest/pin", "required": ["url"], "optional": [], "cost_credits": 1,
+            "desc": "A single Pinterest pin by URL — image, description, destination link."},
+        "boards": {"path": "/v1/pinterest/user/boards", "required": ["handle"], "optional": [],
+            "cost_credits": 1, "desc": "A Pinterest user's public boards."},
+        "board": {"path": "/v1/pinterest/board", "required": ["url"], "optional": ["cursor"],
+            "cost_credits": 1, "desc": "A Pinterest board's pins by URL."},
+    },
+    "bluesky": {
+        "profile": {"path": "/v1/bluesky/profile", "required": ["handle"], "optional": [], "cost_credits": 1,
+            "desc": "A public Bluesky profile."},
+        "posts": {"path": "/v1/bluesky/user/posts", "required": ["handle"], "optional": ["cursor"],
+            "cost_credits": 1, "desc": "Recent posts from a Bluesky account."},
+        "post": {"path": "/v1/bluesky/post", "required": ["url"], "optional": [], "cost_credits": 1,
+            "desc": "A single Bluesky post by URL."},
+    },
+}
+
+# One routing alias — the (platform, endpoint) choice + params ride as the tool's input, so the
+# whole endpoint surface is one route. A second research vendor later = one more route here.
+RESEARCH_MODELS = {
+    "social-research": {
+        "display": "Social & Ad-Library Research",
+        "strengths": "structured public data from social platforms and ad libraries — competitor "
+        "ads, profiles, posts, comments, search",
+        "price": "metered per call; call list_research_sources for the per-endpoint cost",
+        "routes": [_route("scrapecreators", "scrapecreators-v1",
+                          supports={"platform", "endpoint", "params"})],
+    },
+}
+
+# Speech-to-text with word timestamps. One route today (Scribe); a second STT vendor later = one
+# more route here — the tool contract (audio in, {text, words} out) is vendor-agnostic.
+TRANSCRIBE_MODELS = {
+    "scribe": {
+        "display": "Scribe (speech-to-text with word timestamps)",
+        "strengths": "accurate transcription with word-level timestamps for captions and "
+        "competitor-ad audio analysis; 90+ languages",
+        "price": "metered per minute of audio",
+        "routes": [_route("elevenlabs", "scribe_v1", supports={"audio", "language"})],
+    },
+}
+
+
+def research_source(platform, endpoint):
+    """The curated entry for (platform, endpoint), or None. The vendor path lives here — it is
+    chosen by this enum, never supplied by the caller (the catalog is the request allow-list)."""
+    return (RESEARCH_SOURCES.get((platform or "").strip().lower()) or {}).get(
+        (endpoint or "").strip().lower())
+
+
+def research_validate(platform, endpoint, params):
+    """Validate a research request against the catalog — returns None if OK, else a reason string.
+    Checks the source exists, `params` is an object, every required param is present, and no unknown
+    param is passed. One shared validator so every caller rejects the same bad requests up front,
+    before a call is made."""
+    entry = research_source(platform, endpoint)
+    if entry is None:
+        return f"unknown research source: {platform or '?'}/{endpoint or '?'}"
+    if params is not None and not isinstance(params, dict):
+        return "params must be an object of query parameters."
+    params = params or {}
+    required = list(entry.get("required", []))
+    missing = [p for p in required if not str(params.get(p, "")).strip()]
+    if missing:
+        return f"{platform}/{endpoint} is missing required params: {', '.join(missing)}"
+    allowed = set(required) | set(entry.get("optional", []))
+    unknown = [k for k in params if k not in allowed]
+    if unknown:
+        return f"{platform}/{endpoint} got unknown params: {', '.join(unknown)}"
+    return None
+
+
+def research_sources_listing(query=None):
+    """Discovery payload for list_research_sources: every platform's endpoints with their params
+    contract and per-call cost. `query` filters by platform/endpoint/description keyword."""
+    q = (query or "").lower().strip()
+    platforms = {}
+    for platform, endpoints in RESEARCH_SOURCES.items():
+        rows = []
+        for ep, e in endpoints.items():
+            if q and q not in f"{platform} {ep} {e.get('desc', '')}".lower():
+                continue
+            rows.append({"endpoint": ep, "description": e.get("desc", ""),
+                         "required_params": list(e.get("required", [])),
+                         "optional_params": list(e.get("optional", [])),
+                         "cost_credits": e.get("cost_credits")})
+        if rows:
+            platforms[platform] = rows
+    return {"ok": True, "platforms": platforms,
+            "usage": "call social_research with platform, endpoint, and a params object built from "
+                     "the required/optional params above."}
+
+
 # capability -> model table. Adding a capability = one entry here + a table above.
 _TABLES = {"image": IMAGE_MODELS, "video": VIDEO_MODELS, "audio": AUDIO_MODELS,
-           "extract": EXTRACT_MODELS, "analysis": ANALYSIS_MODELS}
+           "extract": EXTRACT_MODELS, "analysis": ANALYSIS_MODELS, "research": RESEARCH_MODELS,
+           "transcribe": TRANSCRIBE_MODELS}
 DEFAULTS = {"image": DEFAULT_MODEL, "video": "seedance-2.0-fast", "audio": "eleven-v3",
-            "extract": "web-extract", "analysis": "gemini-flash-latest"}
+            "extract": "web-extract", "analysis": "gemini-flash-latest", "research": "social-research",
+            "transcribe": "scribe"}
 
 
 def get(capability, model):
@@ -601,6 +838,17 @@ def price_of(capability, model, meta=None):
 def default_model(capability):
     """The default alias for a capability (used when the agent omits `model`)."""
     return DEFAULTS.get(capability)
+
+
+def default_audio_model(audio_type):
+    """The default audio model for a `type` — speech uses the capability default; music/sfx use the
+    first model that advertises that type."""
+    if audio_type == "speech":
+        return DEFAULTS.get("audio")
+    for name, entry in AUDIO_MODELS.items():
+        if audio_type in entry.get("types", []):
+            return name
+    return DEFAULTS.get("audio")
 
 
 def image_aspects(route):
@@ -824,15 +1072,34 @@ if __name__ == "__main__":
     assert set(_WS_SIZE) == set(IMAGE_ASPECTS)                # every exposed ratio has a pixel size
     assert routes_of("image", "seedream-5")[0]["resolutions"] == ["1k", "1.5k", "2k"]  # no 4k tier
     assert default_model("audio") == "eleven-v3"
-    assert all(routes_of("audio", m)[0]["provider"] == "elevenlabs" for m in AUDIO_MODELS)
+    assert all(routes_of("audio", m) for m in AUDIO_MODELS)      # every audio model has a route
+    assert routes_of("audio", "eleven-v3")[0]["provider"] == "elevenlabs"
     assert routes_of("audio", "eleven-v3")[0]["id"] == "eleven_v3"
+    assert routes_of("audio", "stable-audio")[0]["provider"] == "fal"        # music via fal (queued)
+    assert get("audio", "stable-audio").get("queued") is True
+    assert routes_of("audio", "eleven-sfx")[0]["provider"] == "elevenlabs"   # sfx via elevenlabs
+    assert default_audio_model("music") == "stable-audio" and default_audio_model("sfx") == "eleven-sfx"
     assert list_models("audio")[0]["types"] == ["speech"]
     # voices are account-level: never carried per model, only resolved live
     assert all("voices" not in m for m in list_models("audio"))
     _listing = audio_models_listing()
     assert _listing["default"] == "eleven-v3" and _listing["types"] == AUDIO_TYPES
-    assert len(_listing["models"]) == 3
+    assert len(_listing["models"]) == 5      # 3 speech + music + sfx
     # voices moved to their own tool — the models payload must not carry them at all
     assert "voices" not in _listing and "list_voices" in _listing["voices_note"]
     assert list_models("audio", "long-form")[0]["model"] == "eleven-multilingual-v2"
+
+    # ---- research: one alias -> scrapecreators; every source resolves + carries a cost ----
+    assert routes_of("research", "social-research")[0]["provider"] == "scrapecreators"
+    assert default_model("research") == "social-research"
+    assert research_source("meta_ad_library", "company_ads")["path"].endswith("/company/ads")
+    assert research_source("x", "PROFILE")["path"] == "/v1/twitter/profile"   # case-insensitive
+    assert research_source("nope", "nope") is None
+    for _plat, _eps in RESEARCH_SOURCES.items():
+        for _ep, _e in _eps.items():
+            assert _e.get("path", "").startswith("/v"), (_plat, _ep)
+            assert isinstance(_e.get("cost_credits"), int) and _e["cost_credits"] > 0, (_plat, _ep)
+            assert _e.get("desc"), (_plat, _ep)
+    assert "meta_ad_library" in research_sources_listing()["platforms"]   # unfiltered lists all
+    assert set(research_sources_listing("reddit")["platforms"]) == {"reddit"}   # query narrows
     print("catalog OK:", {c: list(t) for c, t in _TABLES.items()})

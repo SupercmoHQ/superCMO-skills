@@ -25,13 +25,14 @@ from .providers import elevenlabs as _elevenlabs
 from .providers import fal as _fal
 from .providers import firecrawl as _firecrawl
 from .providers import gemini as _gemini
+from .providers import scrapecreators as _scrapecreators
 from .providers import wavespeed as _wavespeed
 
 # provider name -> module (uniform contract: BYOK_ENV / is_available / <cap>_generate / <cap>_request_spec).
 # Catalog routes only name a provider for capabilities it implements, so a provider is never asked
 # for a capability it lacks.
 _PROVIDERS = {"wavespeed": _wavespeed, "fal": _fal, "elevenlabs": _elevenlabs,
-              "gemini": _gemini, "firecrawl": _firecrawl}
+              "gemini": _gemini, "firecrawl": _firecrawl, "scrapecreators": _scrapecreators}
 
 # Pins which vendor serves image/video when more than one vendor key is present; unset means catalog
 # order.
@@ -757,22 +758,20 @@ def list_voices(search=None, gender=None, accent=None, age=None, use_case=None, 
 
 
 def audio_generate(text=None, type="speech", model=None, voice=None, speed=None, stability=None,
-                   similarity_boost=None, style=None, format=None, dry_run=False, output_dir=None,
-                   wait=True, deadline_s=None, call_id=None):
-    """Generate one standalone audio clip. Returns {ok, model, audio:{url|b64, path}} | {ok: False,
-    error, ...}. `type` selects the mode; an unsupported value errors with the supported set."""
+                   similarity_boost=None, style=None, format=None, duration=None, dry_run=False,
+                   output_dir=None, wait=True, deadline_s=None, call_id=None):
+    """Generate one standalone audio clip. `type` selects the mode: 'speech' (a voiceover — needs a
+    `voice`), 'music' (an instrumental bed) or 'sfx' (a sound effect). For speech, `text` is the
+    words to speak; for music/sfx it is a description of the sound and `duration` (seconds) sets the
+    length. Returns {ok, model, audio:{url|b64, path}} | {ok: False, error, ...}."""
     if type not in catalog.AUDIO_TYPES:
         return {"ok": False, "error": f"unknown audio type: {type}",
                 "supported": list(catalog.AUDIO_TYPES)}
     text = (text or "").strip()
     if not text:
-        return {"ok": False, "error": "text is required — the exact words to speak."}
-    # No fallback voice: the vendor needs an id in the URL, and substituting an arbitrary one would
-    # silently read brand copy in a stranger's voice. Make the caller choose.
-    if not (voice or "").strip():
-        return {"ok": False, "error": "voice is required.",
-                "hint": "call list_voices with the brief's requirements and pass a row's `voice_id`."}
-    model = model or catalog.default_model("audio")
+        return {"ok": False, "error": "text is required — the words to speak (speech), or a "
+                "description of the sound (music/sfx)."}
+    model = model or catalog.default_audio_model(type)
     entry = catalog.get("audio", model)
     if entry is None:
         return {"ok": False, "error": f"unknown audio model: {model}", "hint": "call list_audio_models"}
@@ -782,24 +781,41 @@ def audio_generate(text=None, type="speech", model=None, voice=None, speed=None,
     if format is not None and format not in catalog.AUDIO_FORMATS:
         return {"ok": False, "error": f"unsupported format: {format}",
                 "supported": list(catalog.AUDIO_FORMATS)}
-    # The vendor publishes a range only for speed (0.7-1.2). The 0-1 bound on the other three is
-    # ours: their defaults are 0.5/0.75/0 and nothing documents a ceiling, so this is a guard against
-    # a nonsense value reaching the API, not a documented limit. Snap rather than reject, and say so.
+
     adjusted = {}
-    unit = {"stability": stability, "style": style, "similarity_boost": similarity_boost,
-            "speed": speed}
-    for k, v in unit.items():
-        if v is None:
-            continue
-        try:
-            v = float(v)
-        except (TypeError, ValueError):
-            return {"ok": False, "error": f"{k} must be a number; got {v!r}."}
-        lo, hi = (0.7, 1.2) if k == "speed" else (0.0, 1.0)
-        unit[k] = min(hi, max(lo, v))
-        if unit[k] != v:
-            adjusted[k] = {"requested": v, "used": unit[k]}
-    inp = {"text": text, "voice": voice, "format": format, **unit}
+    if type == "speech":
+        # No fallback voice: the vendor needs an id in the URL, and substituting an arbitrary one
+        # would silently read brand copy in a stranger's voice. Make the caller choose.
+        if not (voice or "").strip():
+            return {"ok": False, "error": "voice is required.",
+                    "hint": "call list_voices with the brief's requirements and pass a row's `voice_id`."}
+        # The vendor publishes a range only for speed (0.7-1.2). The 0-1 bound on the other three is
+        # ours: their defaults are 0.5/0.75/0 and nothing documents a ceiling, so this guards against
+        # a nonsense value reaching the API. Snap rather than reject, and say so.
+        unit = {"stability": stability, "style": style, "similarity_boost": similarity_boost,
+                "speed": speed}
+        for k, v in unit.items():
+            if v is None:
+                continue
+            try:
+                v = float(v)
+            except (TypeError, ValueError):
+                return {"ok": False, "error": f"{k} must be a number; got {v!r}."}
+            lo, hi = (0.7, 1.2) if k == "speed" else (0.0, 1.0)
+            unit[k] = min(hi, max(lo, v))
+            if unit[k] != v:
+                adjusted[k] = {"requested": v, "used": unit[k]}
+        inp = {"type": "speech", "text": text, "voice": voice, "format": format, **unit}
+    else:                                                        # music / sfx: a prompt + a length
+        if duration is not None:
+            try:
+                duration = float(duration)
+            except (TypeError, ValueError):
+                return {"ok": False, "error": f"duration must be a number of seconds; got {duration!r}."}
+        else:
+            duration = catalog.AUDIO_DEFAULT_DURATION.get(type)
+        inp = {"type": type, "prompt": text, "duration": duration, "format": format}
+
     kind, provider, route = _select_route("audio", model)
     # A vendor may reject an input shape only it can judge (an unresolvable voice, say). Check it
     # here so a dry run reports the same error a real call would, instead of previewing a bad request.
@@ -837,6 +853,47 @@ def url_extraction(url, prompt=None, schema=None, model=None, dry_run=False, cal
     return _dispatch("extract", model, inp, kind, provider, route, dry_run,
                      "extract_request_spec", "extract_generate", proxy_timeout=_MANAGED_LONG_TIMEOUT,
                      call_id=call_id)
+
+
+# ------------------------------------------------------------------------ research
+def social_research(platform, endpoint, params=None, dry_run=False, call_id=None):
+    """Read-only structured public data from a social platform or ad library — competitor ads,
+    profiles, posts, comments, search. `platform` + `endpoint` name the source (call
+    list_research_sources to discover them); `params` is an object of that endpoint's query params.
+    Returns {ok, platform, endpoint, data} | {ok: False, error, ...}. Returns data, not media."""
+    platform = platform.strip().lower() if isinstance(platform, str) else ""
+    endpoint = endpoint.strip().lower() if isinstance(endpoint, str) else ""
+    if not platform or not endpoint:
+        return {"ok": False, "error": "platform and endpoint are required.",
+                "hint": "call list_research_sources for the available platforms and endpoints"}
+    err = catalog.research_validate(platform, endpoint, params)
+    if err:
+        return {"ok": False, "error": err,
+                "hint": "call list_research_sources for the platforms, endpoints, and params"}
+    model = catalog.default_model("research")
+    inp = {"platform": platform, "endpoint": endpoint, "params": params or {}}
+    kind, provider, route = _select_route("research", model)
+    return _dispatch("research", model, inp, kind, provider, route, dry_run,
+                     "research_request_spec", "research_generate", call_id=call_id)
+
+
+# ------------------------------------------------------------------------ transcribe
+def transcribe(audio, language=None, model=None, dry_run=False, call_id=None):
+    """Transcribe speech to text with word-level timestamps — feeds caption_video and competitor-ad
+    audio analysis. `audio` is a local file path or an http(s) audio/video URL. Returns
+    {ok, text, words:[{word, start, end}], duration, language} | {ok: False, error, ...}. Returns
+    data, not media."""
+    audio = audio.strip() if isinstance(audio, str) else audio
+    if not audio:
+        return {"ok": False, "error": "audio is required (a local file path or an http(s) URL)."}
+    model = model or catalog.default_model("transcribe")
+    if catalog.get("transcribe", model) is None:
+        return {"ok": False, "error": f"unknown transcribe model: {model}",
+                "hint": "omit model to use the default"}
+    inp = {"audio": audio, "language": language or None}
+    kind, provider, route = _select_route("transcribe", model)
+    return _dispatch("transcribe", model, inp, kind, provider, route, dry_run,
+                     "transcribe_request_spec", "transcribe_generate", call_id=call_id)
 
 
 # ------------------------------------------------------------------------ analysis
@@ -969,6 +1026,19 @@ def request_spec_managed(capability, model, inp):
             "body": spec.get("body")}
 
 
+def research_managed(inp, key):
+    """Run a research call server-side with an EXPLICIT key supplied by the caller — the same
+    server-side seam as generate_managed, but the key is passed in rather than read from the env.
+    The caller owns the key, so this resolves the route straight from the catalog and does NOT gate
+    on is_available (which reads the env key). Returns the provider's raw result dict
+    ({ok, platform, endpoint, data} | {ok: False, error, ...})."""
+    routes = catalog.routes_of("research", catalog.default_model("research"))
+    provider = _PROVIDERS.get(routes[0]["provider"]) if routes else None
+    if provider is None:
+        return {"ok": False, "error": "no_provider_configured", "hint": "no research route on this host"}
+    return provider.research_generate(routes[0], {"model": "social-research", **inp}, key)
+
+
 def list_voices_managed(filters):
     """Server-side voice discovery for the managed proxy: our own audio account's voices, read with
     the server key. `filters` = {search, gender, accent, age, use_case, language, limit}. Returns the
@@ -1092,8 +1162,10 @@ if __name__ == "__main__":
     assert audio_generate("hi", voice="Rachel", dry_run=True)["error"] == "not a voice id: Rachel"
     # unknown alias / unsupported mode / bad format each fail with the supported set
     assert audio_generate("hi", voice=_V, model="nope", dry_run=True)["error"].startswith("unknown audio model")
-    _t = audio_generate("hi", voice=_V, type="music", dry_run=True)
-    assert _t["error"] == "unknown audio type: music" and _t["supported"] == ["speech"], _t
+    # music / sfx are valid modes now; only an unknown value errors with the supported set
+    assert audio_generate("x", type="nope", dry_run=True)["error"] == "unknown audio type: nope"
+    _sfx = audio_generate("glass shatter", type="sfx", dry_run=True)
+    assert _sfx.get("_dry_run") and "sound-generation" in _sfx["request"]["url"], _sfx
     assert audio_generate("hi", voice=_V, format="flac", dry_run=True)["supported"] == catalog.AUDIO_FORMATS
     assert audio_generate("   ", voice=_V, dry_run=True)["error"].startswith("text is required")
     # out-of-range 0-1 knobs snap and are reported rather than reaching the vendor

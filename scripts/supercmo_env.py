@@ -6,8 +6,8 @@ Every network script imports this first.
 Credentials resolve from the process environment. A host can populate it via its MCP config
 `env` block — Claude `.mcp.json`, Cursor `.cursor/mcp.json`, Codex `~/.codex/config.toml`
 `[mcp_servers.*.env]` — or the user can export the vars. On import we ALSO load a fixed key
-file, `~/.supercmo/.env` (the same idiom Hermes uses for `~/.hermes/.env`), so keys work on any
-host without shell/GUI-env gymnastics. Precedence: a real env value always wins; the file only
+file, `~/.supercmo/.env` (a fixed per-user dotenv), so keys work on any host without shell/GUI-env
+gymnastics. Precedence: a real env value always wins; the file only
 fills vars that are empty or unset (a host's `${VAR:-}` ref injects an empty string — treated as
 unset). No-op when the file is absent.
 
