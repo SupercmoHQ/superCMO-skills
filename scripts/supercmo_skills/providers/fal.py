@@ -353,63 +353,6 @@ def video_request_spec(route, payload):
             "body": _build_video_input(route, payload)}
 
 
-# --------------------------------------------------------------------- audio: music (queue)
-def _build_audio_input(route, payload):
-    """Build the fal input for a music generation from {prompt|text, duration}. The OSS client sends
-    `prompt`; the hosted core forwards the tool's `text` field — accept either."""
-    p = dict(route.get("defaults", {}))
-    p["prompt"] = payload.get("prompt") or payload.get("text", "")
-    dur = payload.get("duration")
-    if dur is not None:
-        p[route.get("duration_param", "seconds_total")] = float(dur)
-    return p
-
-
-def _audio(parsed):
-    a = (parsed or {}).get("audio_file") or (parsed or {}).get("audio")
-    if isinstance(a, dict) and a.get("url"):
-        return {k: a[k] for k in ("url", "content_type", "file_size", "duration") if a.get(k) is not None}
-    if isinstance(a, str) and a:
-        return {"url": a}
-    return None
-
-
-def audio_generate(route, payload, key):
-    """Direct fal music call (queued, BLOCKING) — the path `generate_managed` uses server-side.
-    Returns {ok, model, audio:{url}, duration} | {ok: False, ...}."""
-    parsed, err = _queue_run(route["id"], _build_audio_input(route, payload), key)
-    if err:
-        return err
-    aud = _audio(parsed)
-    if not aud:
-        return {"ok": False, "error": "no audio returned", "detail": json.dumps(parsed)[:500]}
-    return {"ok": True, "model": payload.get("model"), "audio": aud,
-            "duration": aud.get("duration") or payload.get("duration")}
-
-
-def audio_submit(route, payload, key):
-    """Submit a fal music job (queued). Returns {ok, request_id, status_url, response_url} | {ok: False}."""
-    return queue_submit(route["id"], _build_audio_input(route, payload), key)
-
-
-def audio_status(status_url, response_url, key):
-    """Check a submitted music job. Pending → {ok, done: False}; completed → {ok, done: True,
-    audio:{url}, duration}; else {ok: False, ...}. Model is added by the client."""
-    st = queue_status(status_url, response_url, key)
-    if not st.get("ok") or not st.get("done"):
-        return st
-    aud = _audio(st["result"])
-    if not aud:
-        return {"ok": False, "error": "no audio returned", "detail": json.dumps(st["result"])[:500]}
-    return {"ok": True, "done": True, "audio": aud, "duration": aud.get("duration")}
-
-
-def audio_request_spec(route, payload):
-    return {"method": "POST", "url": f"{QUEUE_BASE}/{route['id']}",
-            "headers": {"Authorization": "Key ***", "Content-Type": "application/json"},
-            "body": _build_audio_input(route, payload)}
-
-
 if __name__ == "__main__":
     # resolved veo first-last-frame endpoint: scalar frame params, "8s" duration
     flf = {"provider": "fal", "id": "fal-ai/veo3.1/first-last-frame-to-video", "duration_unit": "s",

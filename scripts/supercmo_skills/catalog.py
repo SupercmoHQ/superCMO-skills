@@ -496,11 +496,7 @@ VIDEO_MODELS = {
 }
 
 # audio: standalone audio deliverables. `type` selects the mode.
-AUDIO_TYPES = ["speech", "music", "sfx"]
-
-# Default clip length (seconds) for the non-speech modes when the caller omits `duration` — billing
-# is per-second, so this must be concrete (never guessed at request time).
-AUDIO_DEFAULT_DURATION = {"music": 30, "sfx": 5}
+AUDIO_TYPES = ["speech"]
 
 # Output container; each provider maps these onto its own format/sample-rate encoding.
 AUDIO_FORMATS = ["mp3", "wav", "pcm", "opus"]
@@ -534,26 +530,6 @@ AUDIO_MODELS = {
         "price": "~$0.10/1K chars (half the others)",
         "types": ["speech"],
         "routes": [_route("elevenlabs", "eleven_flash_v2_5", supports=_EL_SUPPORTS)],
-    },
-    # --- non-speech modes (C7). Music is queue-based → `queued: True` routes it through the async
-    # lane (the async consumer reads this flag, and the skills provider exposes audio_submit/audio_status); SFX is
-    # fast and synchronous. Vendor endpoint ids are tunable constants — verify at the BYOK smoke. ---
-    "stable-audio": {
-        "display": "Music generation",
-        "strengths": "instrumental music beds and background tracks from a text prompt",
-        "price": "metered per second of audio",
-        "types": ["music"],
-        "queued": True,
-        "routes": [_route("fal", "fal-ai/stable-audio",
-                          supports={"prompt", "duration"})],   # format not wired on the fal music route
-    },
-    "eleven-sfx": {
-        "display": "Sound Effects generation",
-        "strengths": "short sound effects, ambience and foley from a text prompt",
-        "price": "metered per second of audio",
-        "types": ["sfx"],
-        "routes": [_route("elevenlabs", "eleven_sfx",
-                          supports={"prompt", "duration", "format"})],
     },
 }
 
@@ -840,17 +816,6 @@ def default_model(capability):
     return DEFAULTS.get(capability)
 
 
-def default_audio_model(audio_type):
-    """The default audio model for a `type` — speech uses the capability default; music/sfx use the
-    first model that advertises that type."""
-    if audio_type == "speech":
-        return DEFAULTS.get("audio")
-    for name, entry in AUDIO_MODELS.items():
-        if audio_type in entry.get("types", []):
-            return name
-    return DEFAULTS.get("audio")
-
-
 def image_aspects(route):
     """The aspect ratios this image route accepts (its `sizes` map is the authority)."""
     return list(route["sizes"])
@@ -1072,19 +1037,14 @@ if __name__ == "__main__":
     assert set(_WS_SIZE) == set(IMAGE_ASPECTS)                # every exposed ratio has a pixel size
     assert routes_of("image", "seedream-5")[0]["resolutions"] == ["1k", "1.5k", "2k"]  # no 4k tier
     assert default_model("audio") == "eleven-v3"
-    assert all(routes_of("audio", m) for m in AUDIO_MODELS)      # every audio model has a route
-    assert routes_of("audio", "eleven-v3")[0]["provider"] == "elevenlabs"
+    assert all(routes_of("audio", m)[0]["provider"] == "elevenlabs" for m in AUDIO_MODELS)
     assert routes_of("audio", "eleven-v3")[0]["id"] == "eleven_v3"
-    assert routes_of("audio", "stable-audio")[0]["provider"] == "fal"        # music via fal (queued)
-    assert get("audio", "stable-audio").get("queued") is True
-    assert routes_of("audio", "eleven-sfx")[0]["provider"] == "elevenlabs"   # sfx via elevenlabs
-    assert default_audio_model("music") == "stable-audio" and default_audio_model("sfx") == "eleven-sfx"
     assert list_models("audio")[0]["types"] == ["speech"]
     # voices are account-level: never carried per model, only resolved live
     assert all("voices" not in m for m in list_models("audio"))
     _listing = audio_models_listing()
     assert _listing["default"] == "eleven-v3" and _listing["types"] == AUDIO_TYPES
-    assert len(_listing["models"]) == 5      # 3 speech + music + sfx
+    assert len(_listing["models"]) == 3
     # voices moved to their own tool — the models payload must not carry them at all
     assert "voices" not in _listing and "list_voices" in _listing["voices_note"]
     assert list_models("audio", "long-form")[0]["model"] == "eleven-multilingual-v2"

@@ -1,9 +1,9 @@
-"""Shared ffmpeg/ffprobe helpers for the local post-production tools (caption_video, audio_mix,
-reframe, video_overlay) — stdlib + the system ffmpeg/ffprobe binaries only, no vendor, no key.
+"""Shared ffmpeg/ffprobe helpers for the local post-production tools (caption_video,
+video_overlay) — stdlib + the system ffmpeg/ffprobe binaries only, no vendor, no key.
 
-Mirrors the resolve/run/probe helpers proven in `stitch.py`; kept in one place so the four new
-local tools share them instead of each re-cloning. `stitch.py` predates this module and keeps its
-own copies (surgical — a shipped tool is not refactored here).
+Mirrors the resolve/run/probe helpers proven in `stitch.py`; kept in one place so the local tools
+share them instead of each re-cloning. `stitch.py` predates this module and keeps its own copies
+(surgical — a shipped tool is not refactored here).
 """
 import json
 import os

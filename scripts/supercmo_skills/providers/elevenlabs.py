@@ -87,8 +87,6 @@ def audio_validate(payload):
 
 
 def audio_generate(route, payload, key):
-    if payload.get("type") == "sfx":                             # sound effects: a different endpoint
-        return _sfx_generate(payload, key)
     err = audio_validate(payload)
     if err:
         return err
@@ -103,30 +101,9 @@ def audio_generate(route, payload, key):
 
 
 def audio_request_spec(route, payload):
-    if payload.get("type") == "sfx":
-        return {"method": "POST", "url": f"{_BASE}/sound-generation",
-                "headers": {"xi-api-key": "***", "Content-Type": "application/json"},
-                "body": {"text": payload.get("prompt") or payload.get("text", ""),
-                         "duration_seconds": payload.get("duration")}}
     return {"method": "POST", "url": _url(payload),
             "headers": {"xi-api-key": "***", "Content-Type": "application/json"},
             "body": _build_body(route, payload)}
-
-
-def _sfx_generate(payload, key):
-    """Sound effects from a text prompt via /v1/sound-generation (synchronous; returns audio bytes).
-    No voice, no model in the URL — a description and an optional duration."""
-    fmt = _fmt(payload)
-    url = f"{_BASE}/sound-generation?output_format={_OUTPUT_FORMAT.get(fmt, _OUTPUT_FORMAT[_DEFAULT_FORMAT])}"
-    body = {"text": payload.get("prompt") or payload.get("text", "")}
-    if payload.get("duration") is not None:
-        body["duration_seconds"] = float(payload["duration"])
-    data, ctype, status, err = supercmo_env._request_raw("POST", url, body=body, headers={"xi-api-key": key})
-    if data is None:
-        return {"ok": False, "error": f"sound generation failed ({status})", "detail": (err or "")[:500]}
-    return {"ok": True, "model": payload.get("model"),
-            "audio": {"b64": base64.b64encode(data).decode("ascii"),
-                      "content_type": _CONTENT_TYPE.get(fmt) or ctype or "audio/mpeg"}}
 
 
 # --- speech-to-text (Scribe) --------------------------------------------------------------------
@@ -141,8 +118,12 @@ def _encode_multipart(fields, file_field=None, file_bytes=None, filename="audio"
         out.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n"
                    f"{value}\r\n".encode("utf-8"))
     if file_field and file_bytes is not None:
+        # Percent-escape only the three characters that can break out of the header — a quote ends
+        # the field early, a CR/LF ends the whole header. Escaping more (urllib.parse.quote) would
+        # mangle the spaces and non-ASCII that legal filenames carry.
+        safe = str(filename).replace("\r", "%0D").replace("\n", "%0A").replace('"', "%22")
         out.append((f"--{boundary}\r\nContent-Disposition: form-data; name=\"{file_field}\"; "
-                    f"filename=\"{filename}\"\r\nContent-Type: application/octet-stream\r\n\r\n"
+                    f"filename=\"{safe}\"\r\nContent-Type: application/octet-stream\r\n\r\n"
                     ).encode("utf-8"))
         out.append(file_bytes)
         out.append(b"\r\n")
@@ -272,3 +253,18 @@ def list_voices(key, search=None, limit=8, **filters):
                     "the narrowest facet (use_case is usually the one) and search again before "
                     "concluding there is nothing suitable.")
     return rows[:max(1, int(limit or 8))], None
+
+
+if __name__ == "__main__":
+    # The filename reaches Content-Disposition from a caller-supplied path, so the characters that
+    # can break out of that header must not survive into it.
+    _body, _ = _encode_multipart({"model_id": "scribe_v1"}, "file", b"AUDIO",
+                                 'a"\r\nContent-Type: text/html\r\n\r\nINJECTED')
+    _txt = _body.decode("utf-8")
+    assert 'filename="a%22%0D%0AContent-Type: text/html%0D%0A%0D%0AINJECTED"' in _txt, _txt
+    assert "\r\nContent-Type: text/html" not in _txt, _txt   # no header line was injected
+    assert _txt.count("Content-Disposition:") == 2, _txt     # exactly the two parts we built
+    # a legal filename passes through untouched — spaces and non-ASCII are not escaped
+    _ok, _ = _encode_multipart({}, "file", b"x", "mon clip (final) é.mp3")
+    assert 'filename="mon clip (final) é.mp3"' in _ok.decode("utf-8")
+    print("elevenlabs self-check OK")

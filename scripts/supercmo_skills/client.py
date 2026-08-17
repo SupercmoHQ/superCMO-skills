@@ -758,20 +758,22 @@ def list_voices(search=None, gender=None, accent=None, age=None, use_case=None, 
 
 
 def audio_generate(text=None, type="speech", model=None, voice=None, speed=None, stability=None,
-                   similarity_boost=None, style=None, format=None, duration=None, dry_run=False,
-                   output_dir=None, wait=True, deadline_s=None, call_id=None):
-    """Generate one standalone audio clip. `type` selects the mode: 'speech' (a voiceover — needs a
-    `voice`), 'music' (an instrumental bed) or 'sfx' (a sound effect). For speech, `text` is the
-    words to speak; for music/sfx it is a description of the sound and `duration` (seconds) sets the
-    length. Returns {ok, model, audio:{url|b64, path}} | {ok: False, error, ...}."""
+                   similarity_boost=None, style=None, format=None, dry_run=False, output_dir=None,
+                   wait=True, deadline_s=None, call_id=None):
+    """Generate one standalone audio clip. Returns {ok, model, audio:{url|b64, path}} | {ok: False,
+    error, ...}. `type` selects the mode; an unsupported value errors with the supported set."""
     if type not in catalog.AUDIO_TYPES:
         return {"ok": False, "error": f"unknown audio type: {type}",
                 "supported": list(catalog.AUDIO_TYPES)}
     text = (text or "").strip()
     if not text:
-        return {"ok": False, "error": "text is required — the words to speak (speech), or a "
-                "description of the sound (music/sfx)."}
-    model = model or catalog.default_audio_model(type)
+        return {"ok": False, "error": "text is required — the exact words to speak."}
+    # No fallback voice: the vendor needs an id in the URL, and substituting an arbitrary one would
+    # silently read brand copy in a stranger's voice. Make the caller choose.
+    if not (voice or "").strip():
+        return {"ok": False, "error": "voice is required.",
+                "hint": "call list_voices with the brief's requirements and pass a row's `voice_id`."}
+    model = model or catalog.default_model("audio")
     entry = catalog.get("audio", model)
     if entry is None:
         return {"ok": False, "error": f"unknown audio model: {model}", "hint": "call list_audio_models"}
@@ -781,41 +783,24 @@ def audio_generate(text=None, type="speech", model=None, voice=None, speed=None,
     if format is not None and format not in catalog.AUDIO_FORMATS:
         return {"ok": False, "error": f"unsupported format: {format}",
                 "supported": list(catalog.AUDIO_FORMATS)}
-
+    # The vendor publishes a range only for speed (0.7-1.2). The 0-1 bound on the other three is
+    # ours: their defaults are 0.5/0.75/0 and nothing documents a ceiling, so this is a guard against
+    # a nonsense value reaching the API, not a documented limit. Snap rather than reject, and say so.
     adjusted = {}
-    if type == "speech":
-        # No fallback voice: the vendor needs an id in the URL, and substituting an arbitrary one
-        # would silently read brand copy in a stranger's voice. Make the caller choose.
-        if not (voice or "").strip():
-            return {"ok": False, "error": "voice is required.",
-                    "hint": "call list_voices with the brief's requirements and pass a row's `voice_id`."}
-        # The vendor publishes a range only for speed (0.7-1.2). The 0-1 bound on the other three is
-        # ours: their defaults are 0.5/0.75/0 and nothing documents a ceiling, so this guards against
-        # a nonsense value reaching the API. Snap rather than reject, and say so.
-        unit = {"stability": stability, "style": style, "similarity_boost": similarity_boost,
-                "speed": speed}
-        for k, v in unit.items():
-            if v is None:
-                continue
-            try:
-                v = float(v)
-            except (TypeError, ValueError):
-                return {"ok": False, "error": f"{k} must be a number; got {v!r}."}
-            lo, hi = (0.7, 1.2) if k == "speed" else (0.0, 1.0)
-            unit[k] = min(hi, max(lo, v))
-            if unit[k] != v:
-                adjusted[k] = {"requested": v, "used": unit[k]}
-        inp = {"type": "speech", "text": text, "voice": voice, "format": format, **unit}
-    else:                                                        # music / sfx: a prompt + a length
-        if duration is not None:
-            try:
-                duration = float(duration)
-            except (TypeError, ValueError):
-                return {"ok": False, "error": f"duration must be a number of seconds; got {duration!r}."}
-        else:
-            duration = catalog.AUDIO_DEFAULT_DURATION.get(type)
-        inp = {"type": type, "prompt": text, "duration": duration, "format": format}
-
+    unit = {"stability": stability, "style": style, "similarity_boost": similarity_boost,
+            "speed": speed}
+    for k, v in unit.items():
+        if v is None:
+            continue
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return {"ok": False, "error": f"{k} must be a number; got {v!r}."}
+        lo, hi = (0.7, 1.2) if k == "speed" else (0.0, 1.0)
+        unit[k] = min(hi, max(lo, v))
+        if unit[k] != v:
+            adjusted[k] = {"requested": v, "used": unit[k]}
+    inp = {"text": text, "voice": voice, "format": format, **unit}
     kind, provider, route = _select_route("audio", model)
     # A vendor may reject an input shape only it can judge (an unresolvable voice, say). Check it
     # here so a dry run reports the same error a real call would, instead of previewing a bad request.
@@ -1162,10 +1147,8 @@ if __name__ == "__main__":
     assert audio_generate("hi", voice="Rachel", dry_run=True)["error"] == "not a voice id: Rachel"
     # unknown alias / unsupported mode / bad format each fail with the supported set
     assert audio_generate("hi", voice=_V, model="nope", dry_run=True)["error"].startswith("unknown audio model")
-    # music / sfx are valid modes now; only an unknown value errors with the supported set
-    assert audio_generate("x", type="nope", dry_run=True)["error"] == "unknown audio type: nope"
-    _sfx = audio_generate("glass shatter", type="sfx", dry_run=True)
-    assert _sfx.get("_dry_run") and "sound-generation" in _sfx["request"]["url"], _sfx
+    _t = audio_generate("hi", voice=_V, type="music", dry_run=True)
+    assert _t["error"] == "unknown audio type: music" and _t["supported"] == ["speech"], _t
     assert audio_generate("hi", voice=_V, format="flac", dry_run=True)["supported"] == catalog.AUDIO_FORMATS
     assert audio_generate("   ", voice=_V, dry_run=True)["error"].startswith("text is required")
     # out-of-range 0-1 knobs snap and are reported rather than reaching the vendor
