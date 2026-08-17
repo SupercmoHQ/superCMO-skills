@@ -39,8 +39,7 @@ def audio_generate(args):
                 return {"ok": False, "error": f"{k} must be a number; got {r[k]!r}."}
         return supercmo_skills.audio_generate(
             text=r.get("text"), type=r.get("type") or "speech", model=r.get("model"),
-            voice=r.get("voice"), format=r.get("format"), duration=r.get("duration"),
-            dry_run=dry_run, **knobs)
+            voice=r.get("voice"), format=r.get("format"), dry_run=dry_run, **knobs)
 
     if dry_run or len(reqs) == 1:
         results = [_one(r) for r in reqs]

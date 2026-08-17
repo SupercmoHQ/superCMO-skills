@@ -224,17 +224,18 @@ AUDIO_GENERATE_DESCRIPTION = (
     "For a user's voiceover request, load the `generating-audio` skill BEFORE calling this — it picks "
     "the right model and voice and prepares the script for reading aloud (this tool does none of that, "
     "and calling it raw gives a flat, mispronounced read). "
-    "Generate standalone audio. `type` selects the mode: 'speech' turns written text into a spoken "
-    "voiceover, narration, ad read or character line (needs a `voice`); 'music' creates an "
-    "instrumental background track from a description; 'sfx' creates a short sound effect or ambience "
-    "from a description. For music and sfx, put the description in `text` and set `duration` (seconds); "
-    "no voice is used. It does NOT re-voice an existing recording or dub a video. "
-    "Pass `requests`: ONE object per clip (wrap even a single clip — `{ requests: [ { text } ] }`); "
-    "add more objects (up to 10) to generate DIFFERENT clips in one call — a single approval covers "
-    "the batch. Each result carries the audio plus a local file `path`, or a structured error with a "
-    "hint. Models differ in expressiveness, language coverage, speed, price, and per-request limit — "
-    "call list_audio_models to compare them. Set dry_run=true to preview the exact requests without "
-    "generating (no credits spent). "
+    "Turn written text into spoken audio: voiceovers, narration, ad reads, character lines, or any "
+    "script read aloud. Pass `requests`: ONE object per clip (wrap even a single clip — "
+    "`{ requests: [ { text } ] }`); add more objects (up to 10) to generate DIFFERENT lines in one "
+    "call — a single approval covers the batch. Each result carries the spoken audio plus a local "
+    "file `path`, or a structured error with a hint. "
+    "This generates speech and nothing else: no sound effects, music, or ambience, no re-voicing an "
+    "existing recording, and no dubbing a video. If the user asks for one of those, say so plainly "
+    "rather than substituting a different tool. "
+    "Every request needs a `voice` — the `voice_id` of a row from list_voices. There is no default "
+    "voice. Models differ in expressiveness, language coverage, speed, price, and per-request "
+    "character limit — call list_audio_models to compare them. Set dry_run=true to preview the exact "
+    "requests without generating (no credits spent)."
     "Each entry in `results` is one of three things: finished media; a "
     "`{status:\"pending\", ...}` job handle to rejoin with job_status; or a failure carrying "
     "`ok: false` and an `error`. A failed entry is terminal — report its `error` and never "
@@ -253,18 +254,17 @@ AUDIO_GENERATE_PROPERTIES = {
             "properties": {
                 "text": {
                     "type": "string",
-                    "description": "For speech: exactly what the voice will say, word for word — "
-                    "everything here is read out, so write numbers, dates and acronyms the way they "
-                    "should sound and use punctuation for the pauses. For music/sfx: a description of "
-                    "the sound to create (e.g. 'upbeat corporate synth-pop bed' or 'glass shatter').",
+                    "description": "Exactly what the voice will say, word for word. Everything here "
+                    "is read out, so leave out anything that is a note to the reader rather than part "
+                    "of the line. Write numbers, dates, and acronyms the way they should sound, and "
+                    "use punctuation to place the pauses.",
                 },
                 "type": {
                     "type": "string",
                     "enum": catalog.AUDIO_TYPES,
                     "default": "speech",
-                    "description": "The kind of audio: 'speech' (a spoken voiceover, needs a voice), "
-                    "'music' (an instrumental bed) or 'sfx' (a sound effect). The error lists the "
-                    "supported values on a mismatch.",
+                    "description": "The kind of audio to make. The error lists the supported "
+                    "values on a mismatch.",
                 },
                 "model": {
                     "type": "string",
@@ -275,9 +275,9 @@ AUDIO_GENERATE_PROPERTIES = {
                 },
                 "voice": {
                     "type": "string",
-                    "description": "Required for speech: the `voice_id` of a row returned by "
-                    "list_voices (use the id, never a display name; there is no default voice, so "
-                    "call list_voices first). Not used for music or sfx.",
+                    "description": "REQUIRED. The `voice_id` of a row returned by list_voices. Use "
+                    "the id, never a display name. There is no default voice: the voice is chosen "
+                    "for the brief, so call list_voices first.",
                 },
                 "speed": {
                     "type": "number",
@@ -315,13 +315,8 @@ AUDIO_GENERATE_PROPERTIES = {
                     "description": "Optional output container. Omit for mp3, which is the right "
                     "choice unless something downstream needs lossless or raw audio.",
                 },
-                "duration": {
-                    "type": "number",
-                    "description": "For music/sfx only: clip length in seconds (music defaults to "
-                    "30, sfx to 5). Ignored for speech.",
-                },
             },
-            "required": ["text"],
+            "required": ["text", "voice"],
             "additionalProperties": False,
         },
     },
@@ -466,9 +461,8 @@ VIDEO_STITCH_DESCRIPTION = (
     "`narration` — ONE take per clip, in clip order, NOT one joined track; each take is aligned to "
     "its own clip so nothing drifts), lay a background-music track under the whole thing (pass "
     "`music`), or burn in subtitles from an SRT file (pass `subtitles`); clips of different sizes "
-    "are scaled to a common frame. Trim any clip to a sub-range by passing it as an object "
-    "{clip, in, out} in seconds. "
-    "Returns the output file `path` with its duration, resolution, and size, or a structured "
+    "are scaled to a common frame. Returns the output file `path` with its duration, resolution, "
+    "and size, or a structured "
     "error with a hint. Requires ffmpeg on the system. Set dry_run=true to preview the plan without "
     "running anything."
 )
@@ -476,25 +470,10 @@ VIDEO_STITCH_DESCRIPTION = (
 VIDEO_STITCH_PROPERTIES = {
     "clips": {
         "type": "array",
-        "items": {
-            "anyOf": [
-                {"type": "string"},
-                {
-                    "type": "object",
-                    "properties": {
-                        "clip": {"type": "string", "description": "The clip file path or http(s) URL."},
-                        "in": {"type": "number", "description": "Trim start, in seconds (default 0)."},
-                        "out": {"type": "number", "description": "Trim end, in seconds."},
-                    },
-                    "required": ["clip"],
-                    "additionalProperties": False,
-                },
-            ],
-        },
+        "items": {"type": "string"},
         "minItems": 2,
-        "description": "The clips to join, in play order — each a local file path (e.g. the `path` a "
-        "video_generate result returns) or an http(s) video URL, or an object {clip, in, out} to "
-        "trim that clip to [in, out] seconds before joining. At least two.",
+        "description": "The clips to join, in play order — local file paths (e.g. the `path` a "
+        "video_generate result returns) or direct http(s) video URLs. At least two.",
     },
     "narration": {
         "type": "array",
@@ -587,125 +566,6 @@ CAPTION_VIDEO_PROPERTIES = {
     },
 }
 CAPTION_VIDEO_REQUIRED = ["video", "transcript"]
-
-
-# ---------------------------------------------------------------------------- audio_mix
-AUDIO_MIX_DESCRIPTION = (
-    "Assemble the audio for an ad and, optionally, lay it straight onto a video — local ffmpeg, no "
-    "credits. Without `video`: mix a voiceover with a background-music bed and sound effects into "
-    "one audio track (the voice anchors the length; music is ducked beneath it so the words stay "
-    "clear; sfx drop in at their offsets). With `video`: that same mix is muxed onto the video in "
-    "one step — replacing/adding its soundtrack, with music ducked under any speech the video "
-    "already has — and the finished video is returned. This is how you put a music bed + VO onto a "
-    "clip: no separate step. Returns the output file `path` with its duration/size (a video when "
-    "`video` is given, else audio), or a structured error. Requires ffmpeg. Set dry_run=true to preview."
-)
-
-AUDIO_MIX_PROPERTIES = {
-    "voice": {
-        "type": "string",
-        "description": "The voiceover track — a local file path (e.g. an audio_generate `path`) or "
-        "an http(s) audio URL. Required unless a `video` is given (which may already carry the "
-        "speech). Anchors the audio-only mix at t=0.",
-    },
-    "video": {
-        "type": "string",
-        "description": "Optional video (path or URL). When given, the mix is laid onto this video "
-        "(its soundtrack replaced/added, music ducked under any existing speech) and a VIDEO is "
-        "returned instead of an audio file — the reliable way to finish a clip's audio.",
-    },
-    "music": {
-        "type": "string",
-        "description": "Optional background-music file (path or URL), laid under the voice/speech.",
-    },
-    "sfx": {
-        "type": "array",
-        "description": "Optional sound effects. Each item is an object with the file and when it "
-        "starts, or a bare path/URL (which starts at 0s).",
-        "items": {
-            "type": "object",
-            "properties": {
-                "file": {"type": "string", "description": "SFX file path or URL."},
-                "at": {"type": "number", "description": "Start offset in seconds (default 0)."},
-                "gain": {"type": "number", "description": "Level multiplier (default 1.0)."},
-            },
-            "required": ["file"],
-            "additionalProperties": False,
-        },
-    },
-    "music_gain": {
-        "type": "number",
-        "description": "Music level before ducking (0-1, default 0.25).",
-    },
-    "duck": {
-        "type": "boolean",
-        "description": "Duck the music beneath the voice (default true).",
-        "default": True,
-    },
-    "format": {
-        "type": "string",
-        "enum": ["mp3", "wav", "aac", "m4a", "opus", "ogg", "flac"],
-        "description": "Output audio format (default mp3; also inferred from the output extension).",
-    },
-    "output": {
-        "type": "string",
-        "description": "Optional output file path. Omit to write a default filename into the media output directory.",
-    },
-    "dry_run": {
-        "type": "boolean",
-        "description": "If true, return the plan; run no ffmpeg.",
-        "default": False,
-    },
-}
-AUDIO_MIX_REQUIRED = []   # voice OR video — the tool validates it (JSON Schema can't express "one of")
-
-
-# ---------------------------------------------------------------------------- reframe
-REFRAME_DESCRIPTION = (
-    "Reframe a video to a new aspect ratio — local ffmpeg, no credits. Convert between vertical "
-    "(9:16), square (1:1) and landscape (16:9) so one creative fits every placement. 'crop' (the "
-    "default) fills the frame and crops the overflow — steer what stays in shot with `focus`; 'pad' "
-    "fits the whole frame and letterboxes the rest. To keep the subject in frame, read the video "
-    "first with video_analysis and pass a `focus`. Audio is kept. Returns the output file `path` "
-    "with its new resolution, or a structured error. Requires ffmpeg. Set dry_run=true to preview."
-)
-
-REFRAME_PROPERTIES = {
-    "video": {
-        "type": "string",
-        "description": "The video to reframe — a local file path or an http(s) video URL.",
-    },
-    "aspect": {
-        "type": "string",
-        "enum": ["9:16", "1:1", "16:9", "4:5", "4:3", "3:4", "21:9"],
-        "description": "Target aspect ratio (width:height).",
-    },
-    "mode": {
-        "type": "string",
-        "enum": ["crop", "pad"],
-        "description": "'crop' fills and crops the overflow (default); 'pad' fits and letterboxes.",
-        "default": "crop",
-    },
-    "focus": {
-        "type": "object",
-        "description": "Crop focus as fractions 0-1 (crop mode). Default centre {x:0.5, y:0.5}.",
-        "properties": {
-            "x": {"type": "number", "description": "Horizontal focus, 0 (left) to 1 (right)."},
-            "y": {"type": "number", "description": "Vertical focus, 0 (top) to 1 (bottom)."},
-        },
-        "additionalProperties": False,
-    },
-    "output": {
-        "type": "string",
-        "description": "Optional output file path. Omit to write a default filename into the media output directory.",
-    },
-    "dry_run": {
-        "type": "boolean",
-        "description": "If true, return the plan; run no ffmpeg.",
-        "default": False,
-    },
-}
-REFRAME_REQUIRED = ["video", "aspect"]
 
 
 # ---------------------------------------------------------------------------- video_overlay
