@@ -10,12 +10,16 @@ Same uniform contract as the media providers (BYOK_ENV / is_available / <cap>_ge
 <cap>_request_spec) so the router treats it like any other route. Returns structured data, not
 media — no local persistence downstream.
 """
+import json
+import logging
 import os
 from urllib.parse import urlencode
 
 import supercmo_env
 
 from .. import catalog
+
+logger = logging.getLogger(__name__)
 
 BYOK_ENV = "SCRAPECREATORS_API_KEY"
 KEY_ENABLES = "public social-platform research (profiles, posts, comments, competitor ads)"
@@ -52,6 +56,23 @@ def _url(entry, query):
     return f"{url}?{urlencode(query)}" if query else url
 
 
+def _safe_vendor_message(detail):
+    """The vendor's own error `message` when the body is JSON and carries one — and NOTHING else.
+    Returns a stripped non-empty string or None. We surface only this field: the rest of the body can
+    carry internal counters (e.g. the account's remaining credits), and the message itself is a plain
+    validation string (e.g. "Invalid sort_by parameter. Needs to be one of: ...") that the agent can
+    act on. Non-JSON or no `message` → None (caller falls back to a generic error)."""
+    try:
+        body = json.loads(detail) if isinstance(detail, str) else detail
+    except (ValueError, TypeError):
+        return None
+    if isinstance(body, dict):
+        msg = body.get("message")
+        if isinstance(msg, str) and msg.strip():
+            return msg.strip()
+    return None
+
+
 def research_generate(route, payload, key):
     """Run one research call: resolve (platform, endpoint) -> SC path from the catalog, GET it with
     the query params + an x-api-key header, return {ok, platform, endpoint, data}. Never raises."""
@@ -61,12 +82,18 @@ def research_generate(route, payload, key):
             return err
         if not key:
             return {"ok": False, "error": "no research API key configured"}
-        parsed, status, _detail = supercmo_env._request(
+        parsed, status, detail = supercmo_env._request(
             entry.get("method", "GET"), _url(entry, query), headers={"x-api-key": key})
         if parsed is None:
-            # Don't surface the vendor's raw error body — it can name the vendor, which would leak
-            # into the (otherwise vendor-agnostic) agent surface. The status is enough for the caller.
-            return {"ok": False, "error": f"research request failed ({status})"}
+            # The request reached the vendor and was rejected. A 400 is CALLER-FIXABLE — surface the
+            # vendor's own message (a plain validation string) so the agent self-corrects; the vendor
+            # is the source of truth on which params/values it accepts. Auth/rate/5xx are ours or
+            # transient (not caller-fixable): keep the agent-facing error generic and log the raw body
+            # server-side. We never return the raw body — it can carry internal counters.
+            if status == 400:
+                return {"ok": False, "error": _safe_vendor_message(detail) or "research request failed (400)"}
+            logger.warning("research vendor error (status=%s): %s", status, (detail or "")[:300])
+            return {"ok": False, "error": "research temporarily unavailable"}
         return {"ok": True, "platform": payload.get("platform"), "endpoint": payload.get("endpoint"),
                 "data": parsed}
     except Exception as e:  # never raise out of *_generate
@@ -93,4 +120,14 @@ if __name__ == "__main__":
     assert bad.get("ok") is False and "missing required params: handle" in bad["error"], bad
     unk = research_request_spec(None, {"platform": "nope", "endpoint": "nope", "params": {}})
     assert unk.get("ok") is False and "unknown research source" in unk["error"], unk
+    # F21: _safe_vendor_message extracts ONLY the vendor `message` — never other body fields.
+    _b = json.dumps({"message": "Invalid sort_by parameter. Needs to be one of: total_impressions, "
+                     "relevancy_monthly_grouped", "credits_remaining": 999, "errorStatus": 400})
+    assert _safe_vendor_message(_b) == ("Invalid sort_by parameter. Needs to be one of: "
+                                        "total_impressions, relevancy_monthly_grouped"), _safe_vendor_message(_b)
+    assert "credits_remaining" not in _safe_vendor_message(_b)     # never leaks the credit counter
+    assert _safe_vendor_message(json.dumps({"success": False})) is None            # no message field
+    assert _safe_vendor_message(json.dumps({"message": "   "})) is None            # blank message
+    assert _safe_vendor_message("<html>500</html>") is None                        # non-JSON body
+    assert _safe_vendor_message(None) is None
     print("scrapecreators OK")
