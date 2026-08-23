@@ -570,7 +570,8 @@ RESEARCH_SOURCES = {
             "desc": "Find advertisers on Meta's Ad Library by name — returns each company's page id."},
         "company_ads": {"path": "/v1/facebook/adLibrary/company/ads", "required": [],
             "optional": ["companyName", "pageId", "country", "status", "media_type", "language",
-                         "sort_by", "start_date", "end_date", "cursor", "trim"], "cost_credits": 1,
+                         "sort_by", "start_date", "end_date", "cursor", "trim"],
+            "any_of": ["companyName", "pageId"], "cost_credits": 1,
             "desc": "A competitor's active Meta ads (Facebook/Instagram) — pass companyName, or a "
                     "pageId from search_companies. Filter by country, status, media_type, date range."},
         "search_ads": {"path": "/v1/facebook/adLibrary/search/ads", "required": ["query"],
@@ -580,7 +581,8 @@ RESEARCH_SOURCES = {
     "linkedin_ads": {
         "search": {"path": "/v1/linkedin/ads/search", "required": [],
             "optional": ["company", "keyword", "companyId", "countries", "startDate", "endDate",
-                         "paginationToken"], "cost_credits": 1,
+                         "paginationToken"],
+            "any_of": ["company", "keyword", "companyId"], "cost_credits": 1,
             "desc": "Search LinkedIn ads — pass company, keyword, or companyId (+ optional countries, "
                     "date range). Returns advertisers' ad creatives."},
         "ad": {"path": "/v1/linkedin/ad", "required": ["url"], "optional": [], "cost_credits": 1,
@@ -725,6 +727,13 @@ def research_source(platform, endpoint):
         (endpoint or "").strip().lower())
 
 
+def _present(v):
+    """A param value counts as supplied only when it's non-null and not blank — the SAME rule the
+    provider's query builder uses to drop empties, so validation agrees with what reaches the vendor
+    (an explicit `null`/blank would otherwise pass here yet be dropped downstream → a bare vendor 400)."""
+    return v is not None and str(v).strip() != ""
+
+
 def research_validate(platform, endpoint, params):
     """Validate a research request against the catalog — returns None if OK, else a reason string.
     Checks the source exists, `params` is an object, every required param is present, and no unknown
@@ -737,9 +746,15 @@ def research_validate(platform, endpoint, params):
         return "params must be an object of query parameters."
     params = params or {}
     required = list(entry.get("required", []))
-    missing = [p for p in required if not str(params.get(p, "")).strip()]
+    missing = [p for p in required if not _present(params.get(p))]
     if missing:
         return f"{platform}/{endpoint} is missing required params: {', '.join(missing)}"
+    # `any_of`: the vendor accepts several identifiers but needs at least one (e.g. company_ads
+    # wants companyName OR pageId). Marked optional so any single one satisfies it, but omitting
+    # them all is a vendor 400 — reject up front with an actionable message instead.
+    any_of = list(entry.get("any_of", []))
+    if any_of and not any(_present(params.get(p)) for p in any_of):
+        return f"{platform}/{endpoint} needs at least one of: {', '.join(any_of)}"
     allowed = set(required) | set(entry.get("optional", []))
     unknown = [k for k in params if k not in allowed]
     if unknown:
@@ -759,6 +774,7 @@ def research_sources_listing(query=None):
                 continue
             rows.append({"endpoint": ep, "description": e.get("desc", ""),
                          "required_params": list(e.get("required", [])),
+                         "any_of_params": list(e.get("any_of", [])),
                          "optional_params": list(e.get("optional", [])),
                          "cost_credits": e.get("cost_credits")})
         if rows:
@@ -1055,11 +1071,31 @@ if __name__ == "__main__":
     assert research_source("meta_ad_library", "company_ads")["path"].endswith("/company/ads")
     assert research_source("x", "PROFILE")["path"] == "/v1/twitter/profile"   # case-insensitive
     assert research_source("nope", "nope") is None
+    # any_of (F21): company_ads / linkedin search need an advertiser identifier — the vendor 400s
+    # ("No pageId found for company: undefined") without one, so validate rejects the empty call.
+    assert "at least one of" in (research_validate("meta_ad_library", "company_ads", {}) or "")
+    assert "at least one of" in (
+        research_validate("meta_ad_library", "company_ads", {"country": "US"}) or "")
+    # an explicit null / blank identifier must NOT satisfy any_of (the provider drops it → vendor 400)
+    assert "at least one of" in (
+        research_validate("meta_ad_library", "company_ads", {"companyName": None}) or "")
+    assert "at least one of" in (
+        research_validate("meta_ad_library", "company_ads", {"companyName": "  "}) or "")
+    assert research_validate("meta_ad_library", "company_ads", {"companyName": "Nike"}) is None
+    assert research_validate("meta_ad_library", "company_ads", {"pageId": "123"}) is None
+    assert "at least one of" in (research_validate("linkedin_ads", "search", {"countries": "US"}) or "")
+    assert research_validate("linkedin_ads", "search", {"keyword": "shoes"}) is None
+    # a source with no any_of and no required is still fine on empty params
+    assert research_validate("meta_ad_library", "search_ads", {"query": "shoes"}) is None
     for _plat, _eps in RESEARCH_SOURCES.items():
         for _ep, _e in _eps.items():
             assert _e.get("path", "").startswith("/v"), (_plat, _ep)
             assert isinstance(_e.get("cost_credits"), int) and _e["cost_credits"] > 0, (_plat, _ep)
             assert _e.get("desc"), (_plat, _ep)
+            # any_of must be declarable params, else the `unknown params` check would reject a
+            # valid identifier the agent supplies (footgun for a future maintainer).
+            assert set(_e.get("any_of", [])) <= set(_e.get("required", [])) | set(_e.get("optional", [])), \
+                (_plat, _ep)
     assert "meta_ad_library" in research_sources_listing()["platforms"]   # unfiltered lists all
     assert set(research_sources_listing("reddit")["platforms"]) == {"reddit"}   # query narrows
     print("catalog OK:", {c: list(t) for c, t in _TABLES.items()})
