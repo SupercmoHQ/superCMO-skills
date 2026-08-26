@@ -834,3 +834,183 @@ VIDEO_ANALYSIS_PROPERTIES = {
     },
 }
 VIDEO_ANALYSIS_REQUIRED = []
+
+
+# ---------------------------------------------------------------------------- calendar (shared contract)
+# The 4-tool calendar contract both the OSS CLI and the hosted product implement. Schemas only —
+# no handler or store code lives here; CALENDAR_TOOL_SPECS is imported directly by both stacks,
+# so each entry is already the full {name, description, input_schema} shape rather than the
+# separate DESCRIPTION/PROPERTIES/REQUIRED constants the MCP-only tools above use.
+
+_CALENDAR_EVENT_FIELDS = {
+    "kind": {
+        "type": "string",
+        "enum": ["task", "post"],
+        "description": "Which kind of event this is. 'task' re-invokes the agent with `prompt` "
+        "when it fires; 'post' publishes `content` via `publish_tool` with no model call in the "
+        "loop. Determines which other fields are required — see their descriptions.",
+    },
+    "title": {
+        "type": "string",
+        "description": "Short human-readable label for the event, shown in calendar listings.",
+    },
+    "at": {
+        "type": "string",
+        "description": "One-shot fire time, ISO-8601 (e.g. '2026-09-01T14:30:00+05:30'). Must be "
+        "in the future. Exactly one of `at` or `rrule` is required — never both, never neither.",
+    },
+    "rrule": {
+        "type": "string",
+        "description": "Recurrence rule, RFC 5545 (e.g. 'FREQ=WEEKLY;BYDAY=MO,WE,FR;BYHOUR=9'), "
+        "for an event that fires repeatedly. Exactly one of `at` or `rrule` is required — never "
+        "both, never neither.",
+    },
+    "prompt": {
+        "type": "string",
+        "description": "REQUIRED when kind='task'. The instruction the agent is re-invoked with "
+        "when the event fires — write it as a complete, self-contained instruction, since the "
+        "agent has no memory of this call at fire time.",
+    },
+    "content": {
+        "type": "string",
+        "description": "REQUIRED when kind='post'. The exact prepared text to publish.",
+    },
+    "media": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Optional media to publish alongside `content` — a list of local file "
+        "paths and/or URLs.",
+    },
+    "channel": {
+        "type": "string",
+        "description": "REQUIRED when kind='post'. Free text naming where to publish (e.g. "
+        "'LinkedIn company page', 'Instagram @brand') — a hint the tool named in `publish_tool` "
+        "reads to decide where to post. This is NOT a routing enum: word it however `publish_tool` "
+        "expects.",
+    },
+    "publish_tool": {
+        "type": "string",
+        "description": "REQUIRED when kind='post'. The exact name of a tool the caller can "
+        "currently call to publish (e.g. 'linkedin_post'). Must be a real, currently-connected "
+        "tool — never guessed or invented — since the event hard-fails at fire time if the named "
+        "tool isn't connected.",
+    },
+    "timezone": {
+        "type": "string",
+        "description": "IANA timezone name (e.g. 'America/New_York', 'Asia/Kolkata') that `at` or "
+        "`rrule` is interpreted in.",
+    },
+}
+
+_CALENDAR_ID_FIELD = {
+    "id": {
+        "type": "string",
+        "description": "The event id returned by calendar_add or calendar_list, identifying "
+        "which event to act on.",
+    },
+}
+
+# ---------------------------------------------------------------------------- calendar_list
+CALENDAR_LIST_DESCRIPTION = (
+    "List the caller's upcoming, still-scheduled calendar events — tasks and posts — ordered by "
+    "when they next fire. Each event includes a computed `next_occurrence`: the ISO-8601 "
+    "timestamp of its next fire time, derived from the event's `at` or `rrule` so the caller "
+    "never has to compute recurrence itself. Cancelled events are excluded. Pass `kind` to see "
+    "only tasks or only posts, and `limit` to cap how many come back. Use this before "
+    "calendar_add to check for a clash, or before calendar_update/calendar_remove to find the "
+    "event's `id`."
+)
+
+CALENDAR_LIST_PROPERTIES = {
+    "kind": {
+        "type": "string",
+        "enum": ["task", "post"],
+        "description": "Filter to only this kind of event. Omit to list both.",
+    },
+    "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 20,
+        "description": "Maximum number of events to return, ordered by next occurrence (soonest "
+        "first).",
+    },
+}
+CALENDAR_LIST_REQUIRED = []
+
+# ---------------------------------------------------------------------------- calendar_add
+CALENDAR_ADD_DESCRIPTION = (
+    "Schedule a new calendar event that fires once or on a recurrence. Two kinds: 'task' "
+    "re-invokes the agent with `prompt` when it fires — write the prompt as a complete, "
+    "self-contained instruction, since the agent has no memory of this call when it runs. 'post' "
+    "publishes prepared `content` through a named tool with no model call in the loop — requires "
+    "`content`, `channel`, and `publish_tool`. "
+    "Exactly ONE of `at` (a one-shot ISO-8601 timestamp, which must be in the future) or `rrule` "
+    "(an RFC 5545 recurrence rule) is required — never both, never neither. "
+    "`channel` is free text, not a router: it is a hint the tool named in `publish_tool` reads to "
+    "decide where to post, so word it the way that tool expects, never a fixed enum. "
+    "`publish_tool` must name a tool the caller can actually call right now — a currently-"
+    "connected tool, never invented or assumed; the event hard-fails at fire time if the named "
+    "tool is not connected. "
+    "`media` is an optional list of local file paths and/or URLs to publish alongside `content`. "
+    "`timezone` is an IANA name (e.g. 'America/New_York') the schedule is interpreted in."
+)
+
+CALENDAR_ADD_PROPERTIES = dict(_CALENDAR_EVENT_FIELDS)
+CALENDAR_ADD_REQUIRED = ["kind", "title"]
+
+# ---------------------------------------------------------------------------- calendar_update
+CALENDAR_UPDATE_DESCRIPTION = (
+    "Change fields on an existing calendar event, or re-arm/cancel it. Pass only the fields you "
+    "want to change — anything omitted is left as it was. The same rules as calendar_add apply "
+    "to whatever you set: exactly one of `at`/`rrule` if you're changing the schedule, and "
+    "`content`+`channel`+`publish_tool` together if the event is (or becomes) a 'post'. `channel` "
+    "stays free text read by `publish_tool`, never a routing enum, and `publish_tool` must still "
+    "name a currently-connected tool. Pass `status: \"cancelled\"` to cancel the event without "
+    "deleting it, or `status: \"scheduled\"` to re-arm a cancelled one."
+)
+
+CALENDAR_UPDATE_PROPERTIES = {
+    **_CALENDAR_ID_FIELD,
+    **_CALENDAR_EVENT_FIELDS,
+    "status": {
+        "type": "string",
+        "enum": ["scheduled", "cancelled"],
+        "description": "Set to 'cancelled' to stop the event from firing without deleting it, or "
+        "'scheduled' to re-arm a cancelled event.",
+    },
+}
+CALENDAR_UPDATE_REQUIRED = ["id"]
+
+# ---------------------------------------------------------------------------- calendar_remove
+CALENDAR_REMOVE_DESCRIPTION = (
+    "Cancel a calendar event by `id` — it stops firing but is not deleted, the same effect as "
+    "calendar_update with status='cancelled'. Use calendar_list first if you don't already have "
+    "the event's `id`."
+)
+
+CALENDAR_REMOVE_PROPERTIES = dict(_CALENDAR_ID_FIELD)
+CALENDAR_REMOVE_REQUIRED = ["id"]
+
+CALENDAR_TOOL_SPECS = [
+    {
+        "name": "calendar_list",
+        "description": CALENDAR_LIST_DESCRIPTION,
+        "input_schema": object_schema(CALENDAR_LIST_PROPERTIES, CALENDAR_LIST_REQUIRED),
+    },
+    {
+        "name": "calendar_add",
+        "description": CALENDAR_ADD_DESCRIPTION,
+        "input_schema": object_schema(CALENDAR_ADD_PROPERTIES, CALENDAR_ADD_REQUIRED),
+    },
+    {
+        "name": "calendar_update",
+        "description": CALENDAR_UPDATE_DESCRIPTION,
+        "input_schema": object_schema(CALENDAR_UPDATE_PROPERTIES, CALENDAR_UPDATE_REQUIRED),
+    },
+    {
+        "name": "calendar_remove",
+        "description": CALENDAR_REMOVE_DESCRIPTION,
+        "input_schema": object_schema(CALENDAR_REMOVE_PROPERTIES, CALENDAR_REMOVE_REQUIRED),
+    },
+]
