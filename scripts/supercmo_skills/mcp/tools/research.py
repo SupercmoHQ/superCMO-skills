@@ -25,6 +25,7 @@ def social_research(args):
         endpoint=args.get("endpoint"),
         params=args.get("params"),
         dry_run=bool(args.get("dry_run", False)),
+        fields=args.get("fields"),
     )
 
 

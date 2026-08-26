@@ -1,0 +1,42 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. Should-trigger: auditing the ads the user's OWN company is running, what they cover, what they stopped, what is holding or fatiguing. Should-not-trigger: competitors' ads (researching-competitor-ads), the brand's identity (analyzing-brand), a product's facts (analyzing-products), deciding what to make next (planning-campaigns), generating creative, and an off-topic control. Research only — run lengths from the public library, never spend or results.",
+  "schema_version": 2,
+  "trigger_keywords": [
+    "my own ads",
+    "our own ads",
+    "going stale",
+    "fatigu",
+    "ads we are running",
+    "ads i am running",
+    "what ads are we running",
+    "what ads am i running",
+    "audit my ads",
+    "audit our ads",
+    "our current ads",
+    "my current ads",
+    "ads we run",
+    "which of my ads",
+    "which of our ads",
+    "our ad account",
+    "ads we stopped",
+    "did we stop",
+    "did i stop",
+    "creative coverage"
+  ],
+  "cases": [
+    { "id": "tc_generic", "query": "audit the ads we are running right now", "expected_trigger": true },
+    { "id": "tc_running", "query": "what ads am i running at the moment", "expected_trigger": true },
+    { "id": "tc_holding", "query": "which of our ads has been running longest", "expected_trigger": true },
+    { "id": "tc_coverage", "query": "what angles and hooks do our own ads already cover", "expected_trigger": true },
+    { "id": "tc_stopped", "query": "which ads did we stop and how quickly", "expected_trigger": true },
+    { "id": "tc_fatigue", "query": "are any of our ads going stale", "expected_trigger": true },
+    { "id": "tc_ignore_competitor", "query": "research what ads my competitors are running", "expected_trigger": false },
+    { "id": "tc_ignore_teardown", "query": "do an ad teardown of my top 3 competitors", "expected_trigger": false },
+    { "id": "tc_ignore_brand", "query": "analyze my brand from our website", "expected_trigger": false },
+    { "id": "tc_ignore_product", "query": "analyze this product url and pull the images", "expected_trigger": false },
+    { "id": "tc_ignore_plan", "query": "plan next month's campaign and decide the format mix", "expected_trigger": false },
+    { "id": "tc_ignore_imagead", "query": "make an image ad for my sneakers", "expected_trigger": false },
+    { "id": "tc_ignore_copy", "query": "write ad copy for my protein powder", "expected_trigger": false },
+    { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

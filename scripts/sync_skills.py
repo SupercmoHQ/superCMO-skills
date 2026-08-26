@@ -28,6 +28,21 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 README = os.path.join(REPO, "README.md")
 MARKERS = re.compile(r"(<!-- SKILLS:START[^\n]*-->\n)[\s\S]*?(\n<!-- SKILLS:END -->)")
 
+# Skills listed here are pinned to the top of the catalog, in THIS order — put the ones that
+# matter most first. Entries are skill folder names (the `skills/<name>` directory). Anything
+# not listed follows underneath, in alphabetical order. Edit this list to change what leads.
+PRIORITY = [
+    "generating-ugc-videos",
+    "generating-ad-videos",
+    "generating-cartoon-videos",
+    "cloning-video-ads",
+    "generating-image-ads",
+    "generating-product-photos",
+    "researching-competitor-ads",
+    "analyzing-own-ads",
+    "planning-campaigns",
+]
+
 
 def frontmatter(path):
     txt = open(path, encoding="utf-8").read()
@@ -57,7 +72,12 @@ def catalog_skills():
         if (fm.get("metadata") or {}).get("catalog") is False:  # opt-out (template)
             continue
         rows.append((fm.get("name") or os.path.basename(d), os.path.basename(d), blurb(fm)))
-    return sorted(rows)
+    # Priority skills first, in PRIORITY order; everything else alphabetically by name below them.
+    def order(row):
+        _name, d, _blurb = row
+        pinned = PRIORITY.index(d) if d in PRIORITY else len(PRIORITY)
+        return (pinned, _name)
+    return sorted(rows, key=order)
 
 
 def render(rows):
