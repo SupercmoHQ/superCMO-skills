@@ -669,10 +669,17 @@ SOCIAL_RESEARCH_DESCRIPTION = (
     "search, and subreddit / trend discovery. Two steps: call list_research_sources FIRST to see the "
     "platforms, their endpoints, and each endpoint's params; then call this with `platform`, "
     "`endpoint`, and a `params` object built from that endpoint's required/optional params. Returns "
-    "the source's structured JSON in `data` (the shape varies by endpoint), or a structured error "
-    "naming the missing or unknown params. Use for competitor and market research, audience "
-    "listening, and trend discovery — this is read-only public data, not posting and not private "
-    "data. Set dry_run=true to preview the exact request without spending."
+    "the source's structured JSON in `data`, or a structured error naming the missing or unknown "
+    "params. Known endpoints are projected to their readable fields and one media URL per item, with "
+    "page-level facts carried once in `advertisers` rather than repeated on every row, and `shaping` "
+    "says what was dropped; `fields` widens or narrows that. Every response is also "
+    "written to a file: `saved` carries its `path`, the run's `output_dir` for anything built from it, "
+    "the count and the cursor, so a response can be handed straight to a script without being "
+    "copied out of the conversation. Where the response "
+    "is too large to read, `saved.inline` is false and `data` is omitted — use the file. Use for "
+    "competitor and market research, audience listening, and trend discovery — this is read-only "
+    "public data, not posting and not private data. Set dry_run=true to preview the exact request "
+    "without spending."
 )
 
 SOCIAL_RESEARCH_PROPERTIES = {
@@ -693,6 +700,18 @@ SOCIAL_RESEARCH_PROPERTIES = {
         "{\"companyName\": \"Nike\", \"country\": \"US\"}. list_research_sources lists the required and "
         "optional params for each endpoint; a missing required param returns a structured error.",
         "additionalProperties": True,
+    },
+    "fields": {
+        "description": "Which fields to return. Omit for the endpoint's default projection — the "
+        "readable fields plus one media URL per item, which is what nearly every caller wants. Pass "
+        "\"*\" for the vendor's payload untouched (large: an ad-library page runs to ~185,000 "
+        "characters, a third of it signed CDN query strings). Pass a list of field names to narrow "
+        "the projection further. Endpoints with no projection defined ignore this and return the "
+        "vendor payload.",
+        "oneOf": [
+            {"type": "string"},
+            {"type": "array", "items": {"type": "string"}},
+        ],
     },
     "dry_run": {
         "type": "boolean",
@@ -719,3 +738,99 @@ LIST_RESEARCH_SOURCES_PROPERTIES = {
     },
 }
 LIST_RESEARCH_SOURCES_REQUIRED = []
+
+
+# ---------------------------------------------------------------------------- image_analysis
+IMAGE_ANALYSIS_DESCRIPTION = (
+    "Look at one or more images (local file paths or image URLs) and answer a question about each — "
+    "returns text, not new images. Use to read a product photo (category, materials, on-pack text, "
+    "distinctive details), to judge whether a shot is product-only or shows a face, or to describe "
+    "any image's content, layout, or text. Pass `requests` to read several images in ONE call — they "
+    "are analyzed in parallel, so a batch costs about the same wall time as its slowest image. Give "
+    "a specific 'prompt' for a focused answer; omit it for a general description. Set dry_run=true "
+    "to preview the request without spending."
+)
+
+_IMAGE_ANALYSIS_ONE = {
+    "image": {
+        "type": "string",
+        "description": "The image to analyze — a local file path or an http(s) image URL.",
+    },
+    "prompt": {
+        "type": "string",
+        "description": "The question to answer about this image — e.g. 'What product is this, how is "
+        "it used, how does it open, and what color/material/label details define it?' Omit for a "
+        "general description.",
+    },
+}
+
+IMAGE_ANALYSIS_PROPERTIES = {
+    **_IMAGE_ANALYSIS_ONE,
+    "requests": {
+        "type": "array",
+        "description": "Analyze several images in one call (1-10). Each entry takes its own `image` "
+        "and optional `prompt`. Use this instead of one call per image whenever you have more than "
+        "one to read — they run in parallel. Supply either `requests` or a single `image`, not both.",
+        "minItems": 1,
+        "maxItems": 10,
+        "items": {
+            "type": "object",
+            "properties": _IMAGE_ANALYSIS_ONE,
+            "required": ["image"],
+            "additionalProperties": False,
+        },
+    },
+    "dry_run": {
+        "type": "boolean",
+        "description": "If true, return the request that would be sent (key and image masked), make no API call.",
+        "default": False,
+    },
+}
+IMAGE_ANALYSIS_REQUIRED = []
+
+
+# ---------------------------------------------------------------------------- video_analysis
+VIDEO_ANALYSIS_DESCRIPTION = (
+    "Watch one or more videos (local file paths or video URLs) and answer a question about each — "
+    "returns text, not new video. Use to read a clip before generating or matching it, to describe "
+    "what happens in it, or to transcribe what is said. Pass `requests` to watch several videos in "
+    "ONE call — they are analyzed in parallel, so a batch costs about the same wall time as its "
+    "slowest clip. Analyzes a clip inline, so a very large file may be rejected — trim or link a "
+    "shorter clip if so. Set dry_run=true to preview the request without spending."
+)
+
+_VIDEO_ANALYSIS_ONE = {
+    "video": {
+        "type": "string",
+        "description": "The video to analyze — a local file path or an http(s) video URL.",
+    },
+    "prompt": {
+        "type": "string",
+        "description": "The question to answer about this video — e.g. 'Describe the shots, the "
+        "camera moves, the pacing, and transcribe what is said.' Omit for a general description.",
+    },
+}
+
+VIDEO_ANALYSIS_PROPERTIES = {
+    **_VIDEO_ANALYSIS_ONE,
+    "requests": {
+        "type": "array",
+        "description": "Analyze several videos in one call (1-10). Each entry takes its own `video` "
+        "and optional `prompt`. Use this instead of one call per video whenever you have more than "
+        "one to watch — they run in parallel. Supply either `requests` or a single `video`, not both.",
+        "minItems": 1,
+        "maxItems": 10,
+        "items": {
+            "type": "object",
+            "properties": _VIDEO_ANALYSIS_ONE,
+            "required": ["video"],
+            "additionalProperties": False,
+        },
+    },
+    "dry_run": {
+        "type": "boolean",
+        "description": "If true, return the request that would be sent (key and video masked), make no API call.",
+        "default": False,
+    },
+}
+VIDEO_ANALYSIS_REQUIRED = []

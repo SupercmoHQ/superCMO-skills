@@ -1,0 +1,39 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. Should-trigger: establishing a brand's identity, guidelines, palette, typography, voice or positioning from its own site and creative. Should-not-trigger: a single product's facts (analyzing-products), auditing the user's own running ads (analyzing-own-ads), competitor research (researching-competitor-ads), deciding what to make next (planning-campaigns), generating creative, and an off-topic control. Facts only — nothing generated or judged.",
+  "schema_version": 2,
+  "trigger_keywords": [
+    "brand guidelines",
+    "brand identity",
+    "analyze my brand",
+    "brand profile",
+    "brand colors",
+    "brand colours",
+    "color palette",
+    "colour palette",
+    "brand voice",
+    "brand typography",
+    "brand fonts",
+    "brand assets",
+    "brand kit",
+    "brand style guide",
+    "what is my brand",
+    "extract my brand",
+    "brand positioning"
+  ],
+  "cases": [
+    { "id": "tc_generic", "query": "analyze my brand from our website", "expected_trigger": true },
+    { "id": "tc_guidelines", "query": "pull our brand guidelines off our homepage", "expected_trigger": true },
+    { "id": "tc_palette", "query": "what is our brand color palette and typography", "expected_trigger": true },
+    { "id": "tc_voice", "query": "work out our brand voice and positioning from our site", "expected_trigger": true },
+    { "id": "tc_profile", "query": "build a brand profile for acme.com so we can reuse it", "expected_trigger": true },
+    { "id": "tc_assets", "query": "extract our brand identity and hero imagery", "expected_trigger": true },
+    { "id": "tc_ignore_product", "query": "analyze this product url and pull the images", "expected_trigger": false },
+    { "id": "tc_ignore_ownads", "query": "what ads are we running right now", "expected_trigger": false },
+    { "id": "tc_ignore_competitor", "query": "research what ads my competitors are running", "expected_trigger": false },
+    { "id": "tc_ignore_plan", "query": "plan next month's campaign and decide the format mix", "expected_trigger": false },
+    { "id": "tc_ignore_imagead", "query": "make an image ad for my sneakers", "expected_trigger": false },
+    { "id": "tc_ignore_copy", "query": "write ad copy for my protein powder", "expected_trigger": false },
+    { "id": "tc_ignore_rebrand", "query": "come up with a new name and logo for my company", "expected_trigger": false },
+    { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

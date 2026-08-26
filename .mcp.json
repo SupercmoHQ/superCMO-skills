@@ -2,7 +2,7 @@
   "mcpServers": {
     "supercmo": {
       "command": "uvx",
-      "args": ["supercmo-skills@0.1.20"]
+      "args": ["supercmo-skills@0.1.21"]
     }
   }
 }

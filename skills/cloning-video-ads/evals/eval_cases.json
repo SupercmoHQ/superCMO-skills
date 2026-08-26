@@ -1,0 +1,41 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. Should-trigger cases all supply (or clearly imply) a reference ad to copy plus the user's own product. Negatives must route elsewhere: generating-ad-videos (a product ad from scratch, no reference video), generating-ugc-videos (a creator's own take), generating-image-ads (a still ad), generating-videos (general video / animate a photo), analyzing-products (a bare URL).",
+  "schema_version": 2,
+  "trigger_keywords": [
+    "clone this ad",
+    "clone this video",
+    "clone the ad",
+    "recreate this ad",
+    "recreate this video",
+    "recreate this commercial",
+    "remake this ad",
+    "copy this ad",
+    "copy this video",
+    "ad like this",
+    "ad just like this",
+    "same ad but",
+    "make this ad for my product",
+    "recreate this competitor",
+    "clone a competitor",
+    "replicate this ad"
+  ],
+  "cases": [
+    { "id": "tc_clone_this_ad", "query": "clone this ad for my energy drink, here's the video", "expected_trigger": true },
+    { "id": "tc_recreate_competitor", "query": "recreate this competitor's video ad with my sneaker instead", "expected_trigger": true },
+    { "id": "tc_ad_like_this", "query": "make an ad just like this one but for my skincare serum", "expected_trigger": true },
+    { "id": "tc_copy_video", "query": "copy this video ad and swap in my coffee bag", "expected_trigger": true },
+    { "id": "tc_remake", "query": "remake this ad with my product, keep the same structure", "expected_trigger": true },
+    { "id": "tc_same_ad_but", "query": "same ad but with my watch as the product", "expected_trigger": true },
+    { "id": "tc_replicate", "query": "replicate this ad's pacing and shots for my headphones", "expected_trigger": true },
+    { "id": "tc_make_this_for_product", "query": "make this ad for my product — here's the reference clip and my bottle", "expected_trigger": true },
+
+    { "id": "tc_ignore_from_scratch", "query": "make a cinematic commercial for our smartwatch with an actor presenting it", "expected_trigger": false },
+    { "id": "tc_ignore_product_hero", "query": "create a premium product-hero video for our watch, no people on screen", "expected_trigger": false },
+    { "id": "tc_ignore_ugc", "query": "make a UGC video of a creator reviewing our serum", "expected_trigger": false },
+    { "id": "tc_ignore_image_ad", "query": "make a static image ad for my coffee bag with a discount badge", "expected_trigger": false },
+    { "id": "tc_ignore_broll", "query": "make a video of waves crashing on a beach", "expected_trigger": false },
+    { "id": "tc_ignore_animate", "query": "animate this product photo with a slow push-in", "expected_trigger": false },
+    { "id": "tc_ignore_url", "query": "what's on this product page https://example.com/item", "expected_trigger": false },
+    { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

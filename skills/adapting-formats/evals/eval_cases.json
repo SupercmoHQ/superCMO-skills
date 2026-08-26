@@ -1,0 +1,38 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. Should-trigger: taking an image ad that already exists and regenerating it in other ratios (a named size, a ratio family, or every size a channel takes). Should-not-trigger: making an ad that doesn't exist yet (generating-image-ads), writing the ad's words (writing-ad-copy), deciding what to make (planning-campaigns), video work, and an off-topic control.",
+  "schema_version": 2,
+  "trigger_keywords": [
+    "resize",
+    "resize my ad",
+    "resize the ad",
+    "ratio family",
+    "other sizes",
+    "every size",
+    "all the sizes",
+    "what sizes do i need",
+    "in 9:16",
+    "make it 9:16",
+    "square version",
+    "vertical version",
+    "adapt my ad",
+    "adapt the ad",
+    "safe zone",
+    "safe zones",
+    "same ad in"
+  ],
+  "cases": [
+    { "id": "tc_resize", "query": "resize my ad for stories", "expected_trigger": true },
+    { "id": "tc_family", "query": "give me this ad in the full ratio family for meta", "expected_trigger": true },
+    { "id": "tc_sizes", "query": "i need this ad in all the sizes instagram takes", "expected_trigger": true },
+    { "id": "tc_ratio", "query": "make it 9:16 as well, i only have the square", "expected_trigger": true },
+    { "id": "tc_vertical", "query": "can you do a vertical version of this ad", "expected_trigger": true },
+    { "id": "tc_safezone", "query": "redo this ad for reels and keep the copy out of the safe zone", "expected_trigger": true },
+    { "id": "tc_ignore_make", "query": "make an image ad for my sneakers", "expected_trigger": false },
+    { "id": "tc_ignore_photo", "query": "shoot a studio packshot of my bottle", "expected_trigger": false },
+    { "id": "tc_ignore_copy", "query": "write the primary text and headline for my facebook ad", "expected_trigger": false },
+    { "id": "tc_ignore_video", "query": "generate a 30 second product commercial", "expected_trigger": false },
+    { "id": "tc_ignore_plan", "query": "plan our q4 campaign and decide what creative to make", "expected_trigger": false },
+    { "id": "tc_ignore_research", "query": "what ads are my competitors running right now", "expected_trigger": false },
+    { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}
