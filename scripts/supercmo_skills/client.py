@@ -16,7 +16,7 @@ import uuid
 
 import supercmo_env
 
-from . import catalog, paths
+from . import catalog, paths, research_shape
 try:
     from . import telemetry as _telemetry  # anonymous, opt-out usage counts; never required
 except ImportError:  # only an absent module degrades; a bug inside telemetry must surface, not hide
@@ -841,11 +841,14 @@ def url_extraction(url, prompt=None, schema=None, model=None, dry_run=False, cal
 
 
 # ------------------------------------------------------------------------ research
-def social_research(platform, endpoint, params=None, dry_run=False, call_id=None):
+def social_research(platform, endpoint, params=None, dry_run=False, fields=None, call_id=None):
     """Read-only structured public data from a social platform or ad library — competitor ads,
     profiles, posts, comments, search. `platform` + `endpoint` name the source (call
     list_research_sources to discover them); `params` is an object of that endpoint's query params.
-    Returns {ok, platform, endpoint, data} | {ok: False, error, ...}. Returns data, not media."""
+    `fields` narrows what comes back: omit it for the endpoint's default projection, pass "*" for the
+    vendor's payload untouched, or pass a list of field names.
+    Returns {ok, platform, endpoint, data, shaping?, spilled?} | {ok: False, error, ...}.
+    Returns data, not media."""
     platform = platform.strip().lower() if isinstance(platform, str) else ""
     endpoint = endpoint.strip().lower() if isinstance(endpoint, str) else ""
     if not platform or not endpoint:
@@ -858,8 +861,24 @@ def social_research(platform, endpoint, params=None, dry_run=False, call_id=None
     model = catalog.default_model("research")
     inp = {"platform": platform, "endpoint": endpoint, "params": params or {}}
     kind, provider, route = _select_route("research", model)
-    return _dispatch("research", model, inp, kind, provider, route, dry_run,
-                     "research_request_spec", "research_generate", call_id=call_id)
+    out = _dispatch("research", model, inp, kind, provider, route, dry_run,
+                    "research_request_spec", "research_generate", call_id=call_id)
+
+    if dry_run or not isinstance(out, dict) or not out.get("ok") or "data" not in out:
+        return out
+
+    # Shape before the payload reaches the caller: project what we know, then write the result to
+    # disk so there is always a path to hand a script. Both steps disclose what they did.
+    data, shaping = research_shape.project(platform, endpoint, out["data"], fields)
+    out["data"] = data
+    if shaping:
+        out["shaping"] = shaping
+
+    out, saved = research_shape.persist(out, platform, endpoint)
+    if not saved["inline"]:
+        out = {k: v for k, v in out.items() if k != "data"}
+    out["saved"] = saved
+    return out
 
 
 # ------------------------------------------------------------------------ transcribe

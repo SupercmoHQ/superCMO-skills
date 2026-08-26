@@ -1,0 +1,40 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. Should-trigger: researching what ads competitors are running, reading their creative, and reporting the patterns and openings across a category. Should-not-trigger: deciding what to make next (planning-campaigns), writing the ad's words (writing-ad-copy), generating the creative (generating-image-ads / generating-ad-videos), rebuilding a competitor's ad with the user's own product (cloning-video-ads), reading the user's own product (analyzing-products), reporting on the user's own ad performance, and an off-topic control. Research only — nothing generated, posted or planned.",
+  "schema_version": 2,
+  "trigger_keywords": [
+    "competitors",
+    "competitor ads",
+    "competitor research",
+    "competitive analysis",
+    "competitor analysis",
+    "competitive research",
+    "ad teardown",
+    "what ads is",
+    "what ads are",
+    "ads my competitors",
+    "competitor creative",
+    "ad library",
+    "meta ad library",
+    "facebook ad library",
+    "spy on competitor ads",
+    "what are my competitors running",
+    "research my competitors",
+    "competitor ad strategy"
+  ],
+  "cases": [
+    { "id": "tc_generic", "query": "research what ads my competitors are running", "expected_trigger": true },
+    { "id": "tc_named", "query": "what ads is gymshark running right now", "expected_trigger": true },
+    { "id": "tc_teardown", "query": "do an ad teardown of my top 3 competitors", "expected_trigger": true },
+    { "id": "tc_library", "query": "pull my competitor's ads from the meta ad library and tell me what's working", "expected_trigger": true },
+    { "id": "tc_creative", "query": "what hooks are competitors using in their video ads", "expected_trigger": true },
+    { "id": "tc_gap", "query": "competitive analysis of the ads in my category — what is nobody doing", "expected_trigger": true },
+    { "id": "tc_ignore_plan", "query": "plan next month's campaign and decide the format mix", "expected_trigger": false },
+    { "id": "tc_ignore_copy", "query": "write ad copy for my protein powder", "expected_trigger": false },
+    { "id": "tc_ignore_imagead", "query": "make an image ad for my sneakers", "expected_trigger": false },
+    { "id": "tc_ignore_videoad", "query": "generate a 30 second video ad for my brand", "expected_trigger": false },
+    { "id": "tc_ignore_clone", "query": "recreate this competitor's video ad with my product in it", "expected_trigger": false },
+    { "id": "tc_ignore_product", "query": "analyze this product url and pull the images", "expected_trigger": false },
+    { "id": "tc_ignore_perf", "query": "how did my own ads perform last week", "expected_trigger": false },
+    { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

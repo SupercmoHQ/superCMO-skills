@@ -571,11 +571,23 @@ RESEARCH_SOURCES = {
         "company_ads": {"path": "/v1/facebook/adLibrary/company/ads", "required": [],
             "optional": ["companyName", "pageId", "country", "status", "media_type", "language",
                          "sort_by", "start_date", "end_date", "cursor", "trim"], "cost_credits": 1,
+            "values": {"status": ["ALL", "ACTIVE", "INACTIVE"],
+                       "media_type": ["ALL", "IMAGE", "VIDEO", "MEME", "IMAGE_AND_MEME", "NONE"],
+                       "sort_by": ["total_impressions", "relevancy_monthly_grouped"],
+                       "country": "two-letter country code, or ALL",
+                       "language": "two-letter language code",
+                       "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD",
+                       "trim": "boolean",
+                       "_defaults": "status=ACTIVE, country=ALL, media_type=ALL, trim=false"},
             "desc": "A competitor's active Meta ads (Facebook/Instagram) — pass companyName, or a "
                     "pageId from search_companies. Filter by country, status, media_type, date range. "
                     "sort_by is one of: total_impressions, relevancy_monthly_grouped."},
         "search_ads": {"path": "/v1/facebook/adLibrary/search/ads", "required": ["query"],
             "optional": ["country", "status", "media_type", "cursor", "trim"], "cost_credits": 1,
+            "values": {"status": ["ALL", "ACTIVE", "INACTIVE"],
+                       "media_type": ["ALL", "IMAGE", "VIDEO", "MEME", "IMAGE_AND_MEME", "NONE"],
+                       "country": "two-letter country code, or ALL",
+                       "_defaults": "status=ACTIVE, country=ALL, media_type=ALL"},
             "desc": "Search Meta Ad Library ads by keyword across advertisers."},
     },
     "linkedin_ads": {
@@ -735,8 +747,8 @@ def _present(v):
 
 def research_validate(platform, endpoint, params):
     """Validate a research request against the catalog — returns None if OK, else a reason string.
-    Checks the source exists, `params` is an object, every required param is present, and no unknown
-    param is passed. One shared validator so every caller rejects the same bad requests up front,
+    Checks the source exists, `params` is an object, every required param is present, no unknown
+    param is passed, and no param carries a value outside the set the catalog lists for it. One shared validator so every caller rejects the same bad requests up front,
     before a call is made."""
     entry = research_source(platform, endpoint)
     if entry is None:
@@ -752,6 +764,15 @@ def research_validate(platform, endpoint, params):
     unknown = [k for k in params if k not in allowed]
     if unknown:
         return f"{platform}/{endpoint} got unknown params: {', '.join(unknown)}"
+    # A wrong value used to pass validation, go out, and come back as a bare request failure that
+    # still billed. Where the catalog lists a param's values, reject a bad one for free.
+    for name, accepted in (entry.get("values") or {}).items():
+        if name.startswith("_") or not isinstance(accepted, list):
+            continue
+        got = params.get(name)
+        if got is not None and got not in accepted:
+            return (f"{platform}/{endpoint} got {name}={got!r}; accepted values are "
+                    f"{', '.join(accepted)}")
     return None
 
 
@@ -765,10 +786,13 @@ def research_sources_listing(query=None):
         for ep, e in endpoints.items():
             if q and q not in f"{platform} {ep} {e.get('desc', '')}".lower():
                 continue
-            rows.append({"endpoint": ep, "description": e.get("desc", ""),
-                         "required_params": list(e.get("required", [])),
-                         "optional_params": list(e.get("optional", [])),
-                         "cost_credits": e.get("cost_credits")})
+            row = {"endpoint": ep, "description": e.get("desc", ""),
+                   "required_params": list(e.get("required", [])),
+                   "optional_params": list(e.get("optional", [])),
+                   "cost_credits": e.get("cost_credits")}
+            if e.get("values"):
+                row["accepted_values"] = e["values"]
+            rows.append(row)
         if rows:
             platforms[platform] = rows
     return {"ok": True, "platforms": platforms,

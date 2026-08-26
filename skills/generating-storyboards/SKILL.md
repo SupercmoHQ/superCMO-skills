@@ -80,9 +80,7 @@ The plan gives the clip's story and its seconds. How many panels carry it is wor
 split it wherever a second motion starts or a second object is taken up: *picks it up*, *tilts it to
 the light*, *puts it on* are three panels, never one line.
 
-**Each panel runs two seconds of the clip where possible, three at most**, so the seconds set how many there are. A story
-that splits into more panels than the clip has room for is too much for the clip — say so and cut a
-motion rather than crowding them.
+**Each panel runs two seconds of the clip where possible, three at most**, so the seconds set how many there are — **up to five panels, never more**. Five vertical panels are the most one sheet holds before each shrinks and its detail — faces, hands, product labels — begins to distort. Where the clip's story has more than five primary actions, don't crowd them onto the sheet: keep the five that carry the clip — its key moments, always including the opening and the closing beat — and let the rest be carried as motion inside those cuts rather than getting their own panel.
 
 ### Step 4: Write the panels
 
