@@ -912,26 +912,48 @@ _CALENDAR_ID_FIELD = {
 
 # ---------------------------------------------------------------------------- calendar_list
 CALENDAR_LIST_DESCRIPTION = (
-    "List the caller's upcoming, still-scheduled calendar events — tasks and posts — ordered by "
-    "when they next fire. Each event includes a computed `next_occurrence`: the ISO-8601 "
-    "timestamp of its next fire time, derived from the event's `at` or `rrule` so the caller "
-    "never has to compute recurrence itself. Cancelled events are excluded. Pass `kind` to see "
-    "only tasks or only posts, and `limit` to cap how many come back. Use this before "
-    "calendar_add to check for a clash, or before calendar_update/calendar_remove to find the "
-    "event's `id`."
+    "List the caller's calendar events — tasks and posts — ordered by when they next fire. Each "
+    "event includes a computed `next_occurrence`: the ISO-8601 timestamp of its next fire time, "
+    "derived from the event's `at` or `rrule` so the caller never has to compute recurrence "
+    "itself. Defaults to upcoming, still-scheduled events; pass `status` to also see cancelled or "
+    "historical (done/failed/missed) events. Narrow further with `window_start`/`window_end` (a "
+    "time range), `kind` (task vs post), or `channel` (exact match on the free-text channel), and "
+    "cap how many come back with `limit`. Use this before calendar_add to check for a clash, or "
+    "before calendar_update/calendar_remove to find the event's `id`."
 )
 
 CALENDAR_LIST_PROPERTIES = {
+    "window_start": {
+        "type": "string",
+        "description": "Only include events whose next occurrence is at or after this ISO-8601 "
+        "timestamp. Omit for no lower bound (defaults to now).",
+    },
+    "window_end": {
+        "type": "string",
+        "description": "Only include events whose next occurrence is at or before this ISO-8601 "
+        "timestamp. Omit for no upper bound.",
+    },
     "kind": {
         "type": "string",
         "enum": ["task", "post"],
         "description": "Filter to only this kind of event. Omit to list both.",
     },
+    "channel": {
+        "type": "string",
+        "description": "Filter to events whose `channel` matches this free text exactly. Omit to "
+        "include all channels.",
+    },
+    "status": {
+        "type": "string",
+        "enum": ["scheduled", "done", "failed", "missed", "cancelled"],
+        "description": "Filter to events in this lifecycle state. Omit to default to 'scheduled' "
+        "(upcoming) events only.",
+    },
     "limit": {
         "type": "integer",
         "minimum": 1,
         "maximum": 100,
-        "default": 20,
+        "default": 50,
         "description": "Maximum number of events to return, ordered by next occurrence (soonest "
         "first).",
     },
@@ -962,17 +984,20 @@ CALENDAR_ADD_REQUIRED = ["kind", "title"]
 # ---------------------------------------------------------------------------- calendar_update
 CALENDAR_UPDATE_DESCRIPTION = (
     "Change fields on an existing calendar event, or re-arm/cancel it. Pass only the fields you "
-    "want to change — anything omitted is left as it was. The same rules as calendar_add apply "
-    "to whatever you set: exactly one of `at`/`rrule` if you're changing the schedule, and "
-    "`content`+`channel`+`publish_tool` together if the event is (or becomes) a 'post'. `channel` "
-    "stays free text read by `publish_tool`, never a routing enum, and `publish_tool` must still "
-    "name a currently-connected tool. Pass `status: \"cancelled\"` to cancel the event without "
-    "deleting it, or `status: \"scheduled\"` to re-arm a cancelled one."
+    "want to change — anything omitted is left as it was. `kind` is fixed at creation and can't "
+    "be changed here. The same rules as calendar_add apply to whatever you set: exactly one of "
+    "`at`/`rrule` if you're changing the schedule, and `content`+`channel`+`publish_tool` "
+    "together if the event is a 'post'. `channel` stays free text read by `publish_tool`, never "
+    "a routing enum, and `publish_tool` must still name a currently-connected tool. Pass "
+    "`status: \"cancelled\"` to cancel the event without deleting it, or `status: \"scheduled\"` "
+    "to re-arm a cancelled one."
 )
+
+_CALENDAR_UPDATE_FIELDS = {k: v for k, v in _CALENDAR_EVENT_FIELDS.items() if k != "kind"}
 
 CALENDAR_UPDATE_PROPERTIES = {
     **_CALENDAR_ID_FIELD,
-    **_CALENDAR_EVENT_FIELDS,
+    **_CALENDAR_UPDATE_FIELDS,
     "status": {
         "type": "string",
         "enum": ["scheduled", "cancelled"],
