@@ -57,7 +57,11 @@ def _bind(fn):
     def handler(args):
         if _ct is None:
             return dict(_DEPS_HINT, detail=_IMPORT_ERROR)
-        return fn(_store(), **(args or {}))
+        out = fn(_store(), **(args or {}))
+        # The server's tools/call envelope derives isError from `ok` — the calendar_tools core
+        # signals failure via an `error` key only (its dicts are shared with non-MCP bindings),
+        # so stamp `ok` here or every SUCCESSFUL call reports isError: true to the client.
+        return dict(out, ok="error" not in out)
     return handler
 
 

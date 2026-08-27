@@ -47,3 +47,23 @@ def test_calendar_add_validation_still_enforced(tmp_path, monkeypatch):
     bad = registry.handler("calendar_add")({"kind": "post", "title": "x", "content": "c",
                                             "channel": "x", "publish_tool": "t"})
     assert "error" in bad  # neither at nor rrule
+
+
+def test_tools_call_iserror_reflects_success_and_failure(tmp_path, monkeypatch):
+    """Through the REAL JSON-RPC dispatch (server.handle), not registry.handler directly: a
+    successful calendar_add must come back isError: false (the server derives isError from `ok`,
+    which the binding stamps), and a failing one isError: true. Regression for the bug where
+    every successful calendar call reported isError: true."""
+    from supercmo_skills.mcp import server
+
+    monkeypatch.setenv("SUPERCMO_CALENDAR_PATH", str(tmp_path / "calendar.ics"))
+    at = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+
+    good = server.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {
+        "name": "calendar_add",
+        "arguments": {"kind": "task", "title": "t", "at": at, "prompt": "p"}}})
+    assert good["result"]["isError"] is False, good
+
+    bad = server.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {
+        "name": "calendar_add", "arguments": {"kind": "task", "title": "t", "prompt": "p"}}})
+    assert bad["result"]["isError"] is True, bad
