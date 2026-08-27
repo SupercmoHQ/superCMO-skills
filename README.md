@@ -303,7 +303,7 @@ These skills run inside your agent. Exactly what happens:
   go **directly to the vendor — nothing routes through SuperCMO**. With the **managed** key, requests go
   to SuperCMO's proxy (billed to your credits) — you never hand us a vendor key.
 * **The MCP server is local + minimal.** A stdlib-only Python package (`supercmo-skills` on PyPI, source
-  in `scripts/supercmo_skills/mcp/`), fetched and run on demand via `uvx --from 'supercmo-skills[calendar]==<version>' supercmo-skills` — it
+  in `scripts/supercmo_skills/mcp/`), fetched and run on demand via `uvx supercmo-skills@<version>` — it
   runs on your machine, launched by your host, and starts only when your host enables the plugin.
 * **Dry-run everything.** Generation tools support `dry_run` - a free preview of the exact request
   (keys masked), no API call.

@@ -15,14 +15,12 @@ const {
   setKey,
   SERVER_NAME,
   SERVER_SPEC,
-  SERVER_SCRIPT,
 } = require("./lib/config");
 const cli = require("./lib/clihosts");
 const json = require("./lib/jsonhosts");
 const components = require("./lib/components");
 
-// Confirm `uvx` is available — the MCP server runs via
-// `uvx --from 'supercmo-skills[calendar]==<version>' supercmo-skills` from PyPI
+// Confirm `uvx` is available — the MCP server runs via `uvx supercmo-skills@<version>` from PyPI
 // (uv provisions Python + deps, cached). Returns the uvx command name.
 function detectUv() {
   for (const command of ["uvx"]) {
@@ -222,15 +220,14 @@ function runUninstall(hosts, opts) {
 
 function runInstall(hosts, opts) {
   detectUv(); // throws with install guidance if uv/uvx is missing
-  // Every host runs the same command: `uvx --from 'supercmo-skills[calendar]==<version>'
-  // supercmo-skills` — uvx fetches the pinned package (with the calendar extra) from PyPI and runs
-  // its console script (provisions Python + deps, cached). No env block — keys load from
-  // ~/.supercmo/.env, which the server reads on startup.
+  // Every host runs the same command: `uvx supercmo-skills@<version>` — uvx fetches the pinned
+  // package from PyPI and runs its console script (provisions Python + deps, cached). No env block —
+  // keys load from ~/.supercmo/.env, which the server reads on startup.
   const command = "uvx";
-  const argsPrefix = ["--from", SERVER_SPEC];
-  const serverPy = SERVER_SCRIPT;
+  const argsPrefix = [];
+  const serverPy = SERVER_SPEC; // "supercmo-skills@<version>" (dist == script name)
   const kf = ensureKeyFile(); // ~/.supercmo/.env — the server loads keys from here on every host
-  console.log(`· server: uvx --from ${SERVER_SPEC} ${SERVER_SCRIPT}`);
+  console.log(`· server: uvx ${SERVER_SPEC}`);
   console.log(
     `· keys:    ${kf.file} ${kf.created ? "(created)" : "(exists — kept your keys)"}`,
   );

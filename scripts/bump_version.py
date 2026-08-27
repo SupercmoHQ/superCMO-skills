@@ -49,7 +49,6 @@ RULES = [
     re.compile(r'(^version = ")(' + _V + r')(")', re.M),    # pyproject.toml
     re.compile(r'(SERVER_VERSION = ")(' + _V + r')(")'),    # server.py
     re.compile(r'(supercmo-skills@)(' + _V + r')()'),       # uvx pins (empty suffix group)
-    re.compile(r'(supercmo-skills\[calendar\]==)(' + _V + r')()'),  # uvx --from pins w/ extra
 ]
 
 
