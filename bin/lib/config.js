@@ -6,10 +6,13 @@ const os = require('os');
 // Package root = two levels up from bin/lib/.
 const PLUGIN_ROOT = path.resolve(__dirname, '..', '..');
 const SERVER_NAME = 'supercmo';
-// The MCP server runs from PyPI via `uvx supercmo-skills@<version>` — pinned to this installer's
-// version (single source) so the skills placed here and the server tools stay in lockstep. dist name
-// == console-script name, so `uvx <spec>` resolves with no --from.
-const SERVER_SPEC = `supercmo-skills@${require(path.join(PLUGIN_ROOT, 'package.json')).version}`;
+// The MCP server runs from PyPI via `uvx --from 'supercmo-skills[calendar]==<version>'
+// supercmo-skills` — pinned to this installer's version (single source) so the skills placed here
+// and the server tools stay in lockstep. The [calendar] extra pulls icalendar + python-dateutil:
+// the base dist is stdlib-only, and without the extra the calendar tools would register but answer
+// every call with a calendar_deps_missing hint.
+const SERVER_SPEC = `supercmo-skills[calendar]==${require(path.join(PLUGIN_ROOT, 'package.json')).version}`;
+const SERVER_SCRIPT = 'supercmo-skills'; // console-script uvx runs from the --from dist
 
 function home() {
   return os.homedir();
@@ -87,4 +90,4 @@ function setKey(name, value) {
   return file;
 }
 
-module.exports = { PLUGIN_ROOT, SERVER_NAME, SERVER_SPEC, home, ensureKeyFile, setKey };
+module.exports = { PLUGIN_ROOT, SERVER_NAME, SERVER_SPEC, SERVER_SCRIPT, home, ensureKeyFile, setKey };

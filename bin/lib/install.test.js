@@ -24,14 +24,17 @@ function setup() {
   return { home };
 }
 const tmpProj = () => fs.mkdtempSync(path.join(os.tmpdir(), 'supercmo-proj-'));
-// Every host runs `uvx supercmo-skills@<version>` (from PyPI) — no --from, no env block.
+// Every host runs `uvx --from 'supercmo-skills[calendar]==<version>' supercmo-skills` — the
+// calendar extra makes the calendar toolset functional; no env block.
 const SPEC = config.SERVER_SPEC;
-const optsFile = (o, extra = {}) => ({ serverPy: SPEC, command: 'uvx', argsPrefix: [], ...extra });
+const SCRIPT = config.SERVER_SCRIPT;
+const optsFile = (o, extra = {}) => ({ serverPy: SCRIPT, command: 'uvx', argsPrefix: ['--from', SPEC], ...extra });
 const read = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
-const addArgs = (o) => ({ name: 'supercmo', command: 'uvx', args: [SPEC] });
+const addArgs = (o) => ({ name: 'supercmo', command: 'uvx', args: ['--from', SPEC, SCRIPT] });
 
-test('SERVER_SPEC pins supercmo-skills to the installer version (dist == console-script name)', () => {
-  assert.match(SPEC, /^supercmo-skills@\d+\.\d+\.\d+$/, 'pinned PyPI spec');
+test('SERVER_SPEC pins supercmo-skills[calendar] to the installer version', () => {
+  assert.match(SPEC, /^supercmo-skills\[calendar\]==\d+\.\d+\.\d+$/, 'pinned PyPI spec with extra');
+  assert.equal(SCRIPT, 'supercmo-skills');
 });
 
 test('ensureKeyFile creates ~/.supercmo/.env once with placeholders, never clobbers keys', () => {
@@ -54,7 +57,7 @@ test('ensureKeyFile creates ~/.supercmo/.env once with placeholders, never clobb
 test('codex: builds `codex mcp add <name> -- <cmd>` with NO env block (keys load from ~/.supercmo/.env)', () => {
   const o = setup();
   const { args, missing } = cli.HOSTS.codex.add(addArgs(o));
-  assert.deepEqual(args, ['mcp', 'add', 'supercmo', '--', 'uvx', SPEC]);
+  assert.deepEqual(args, ['mcp', 'add', 'supercmo', '--', 'uvx', '--from', SPEC, SCRIPT]);
   assert.ok(!args.includes('--env'), 'no --env: Codex forwards refs literally, so we never write them');
   assert.ok(!JSON.stringify(args).includes('test-fal'), 'no literal secret written');
   assert.deepEqual(missing, []);
@@ -64,7 +67,7 @@ test('codex: builds `codex mcp add <name> -- <cmd>` with NO env block (keys load
 test('claude: builds `claude mcp add -s user <name> -- <cmd>` (user scope, NO env block)', () => {
   const o = setup();
   const { args } = cli.HOSTS.claude.add(addArgs(o));
-  assert.deepEqual(args, ['mcp', 'add', '-s', 'user', 'supercmo', '--', 'uvx', SPEC]);
+  assert.deepEqual(args, ['mcp', 'add', '-s', 'user', 'supercmo', '--', 'uvx', '--from', SPEC, SCRIPT]);
   assert.ok(!args.includes('--env'), 'no --env — keys load from ~/.supercmo/.env');
   assert.deepEqual(cli.HOSTS.claude.remove('supercmo'), ['mcp', 'remove', '-s', 'user', 'supercmo']);
 });
@@ -103,7 +106,7 @@ test('cursor: registers command + args, no env block, no literal secret', () => 
   const r = json.installCursor(optsFile(o));
   const s = read(r.file).mcpServers.supercmo;
   assert.equal(s.command, 'uvx');
-  assert.deepEqual(s.args, [SPEC]);
+  assert.deepEqual(s.args, ['--from', SPEC, SCRIPT]);
   assert.ok(!s.env, 'no env block — keys load from ~/.supercmo/.env');
   assert.ok(!JSON.stringify(s).includes('test-fal'), 'no literal key value written');
 });
@@ -140,7 +143,7 @@ test('opencode: mcp key, command array, no environment block', () => {
   const o = setup();
   const s = read(json.installOpenCode(optsFile(o)).file).mcp.supercmo;
   assert.equal(s.type, 'local');
-  assert.deepEqual(s.command, ['uvx', SPEC]);
+  assert.deepEqual(s.command, ['uvx', '--from', SPEC, SCRIPT]);
   assert.ok(!s.environment, 'no environment block — keys load from ~/.supercmo/.env');
 });
 
