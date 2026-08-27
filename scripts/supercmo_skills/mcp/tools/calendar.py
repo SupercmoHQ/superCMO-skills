@@ -14,7 +14,8 @@ Two deliberate MCP-surface limits, both host-bound by nature (not regressions):
 - Nothing here FIRES events. Firing runs real agent turns and needs an always-on host
   (`supercmo cron run` / `supercmo serve`); this surface manages the schedule.
 
-Needs the `calendar` extra: without icalendar + python-dateutil the tools still register and
+icalendar + python-dateutil are part of the default install, so every pip/uvx install serves
+these tools working as-is. A vendored no-install copy lacks them — the tools still register and
 return an actionable install hint (same graceful posture as no_provider_configured).
 """
 
@@ -28,15 +29,16 @@ try:
     from supercmo_skills import calendar_tools as _ct
     from supercmo_skills.calendar_store import CalendarStore as _CalendarStore
     _IMPORT_ERROR = None
-except ImportError as e:  # stdlib-only install (e.g. the vendored Claude plugin path)
+except ImportError as e:  # no-install vendored copy (the libs ship with pip/uvx installs)
     _ct = _CalendarStore = None
     _IMPORT_ERROR = str(e)
 
 _DEPS_HINT = {
     "ok": False,
     "error": "calendar_deps_missing",
-    "hint": "the calendar tools need the `calendar` extra: pip install 'supercmo-skills[calendar]' "
-            "(icalendar + python-dateutil)",
+    "hint": "the calendar tools need icalendar + python-dateutil (bundled with every pip/uvx "
+            "install of supercmo-skills; a vendored no-install copy lacks them — pip install "
+            "icalendar python-dateutil)",
 }
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "supercmo-skills"
-version = "0.1.22"
+version = "0.1.23"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 description = "SuperCMO media client (image, video, audio): stdlib-only routing over BYO-direct vendor keys or one managed SuperCMO key."
@@ -25,14 +25,19 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 requires-python = ">=3.11"
+# icalendar + python-dateutil serve the calendar toolset — part of the DEFAULT install, so
+# `uvx supercmo-skills@<version>` works as-is with no extras. Everything else stays stdlib-only
+# (the vendored no-install Claude-plugin path still runs; only the calendar tools degrade there,
+# with an install hint, until the libs are present).
 dependencies = [
-] # stdlib-only by design (vendors into the Claude plugin with no install step)
+    "icalendar>=6.0",
+    "python-dateutil>=2.8",
+]
 
-# The calendar toolset (calendar_store/calendar_tools + its MCP tools) is the ONE opt-in that
-# needs third-party libs. The base install stays stdlib-only; without the extra the MCP server
-# still registers the calendar tools and returns an install hint (calendar_deps_missing).
+# Kept as an empty alias: `supercmo-skills[calendar]` was briefly the documented spelling — it
+# must keep resolving, and now means the same thing as the base install.
 [project.optional-dependencies]
-calendar = ["icalendar>=6.0", "python-dateutil>=2.8"]
+calendar = []
 
 [project.urls]
 Homepage = "https://github.com/SupercmoHQ/superCMO-skills"

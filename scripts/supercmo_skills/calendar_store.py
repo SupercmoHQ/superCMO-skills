@@ -6,8 +6,8 @@ the wrapper's firing engine reads from (the wrapper stores it at
 a real .ics file (not a bespoke DB) means the calendar is directly readable by any calendar
 app via the `supercmo serve` feed — no export step, no second format to keep in sync.
 
-Needs the `calendar` extra (icalendar + python-dateutil): `pip install supercmo-skills[calendar]`.
-The base package stays stdlib-only; the MCP server degrades gracefully when the extra is absent.
+icalendar + python-dateutil ship with every pip/uvx install of supercmo-skills; the MCP server
+degrades gracefully on a vendored no-install copy that lacks them.
 
 Ownership: only VEVENTs carrying X-SUPERCMO-KIND are ours. A user who hand-edits the file and
 adds a normal event keeps it byte-for-byte across every read/write — every write re-serializes
