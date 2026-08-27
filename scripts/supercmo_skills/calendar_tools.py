@@ -11,7 +11,7 @@ Validation lives here (the store only enforces tz-awareness): callers pass exact
 than accepted from the caller, and that anchor is watermarked as already-fired so a brand-new
 recurring event never fires at its own creation moment.
 
-Needs the `calendar` extra (icalendar + python-dateutil).
+Uses icalendar + python-dateutil (part of the package's default install).
 """
 
 from __future__ import annotations
