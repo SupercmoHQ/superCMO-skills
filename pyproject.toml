@@ -28,6 +28,12 @@ requires-python = ">=3.11"
 dependencies = [
 ] # stdlib-only by design (vendors into the Claude plugin with no install step)
 
+# The calendar toolset (calendar_store/calendar_tools + its MCP tools) is the ONE opt-in that
+# needs third-party libs. The base install stays stdlib-only; without the extra the MCP server
+# still registers the calendar tools and returns an install hint (calendar_deps_missing).
+[project.optional-dependencies]
+calendar = ["icalendar>=6.0", "python-dateutil>=2.8"]
+
 [project.urls]
 Homepage = "https://github.com/SupercmoHQ/superCMO-skills"
 Repository = "https://github.com/SupercmoHQ/superCMO-skills"

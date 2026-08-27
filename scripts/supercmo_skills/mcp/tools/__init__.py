@@ -11,3 +11,4 @@ from . import stitch  # noqa: F401
 from . import caption_video  # noqa: F401
 from . import video_overlay  # noqa: F401
 from . import jobs  # noqa: F401
+from . import calendar  # noqa: F401
