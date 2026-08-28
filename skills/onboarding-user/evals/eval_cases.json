@@ -1,0 +1,26 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. Should-trigger: onboarding / first-time brand or company-profile setup. Should-not-trigger: a plain brand analysis (analyzing-brand), key/machine setup (supercmo-setup), generating creative, and an off-topic control. Bare 'set up' is deliberately NOT a keyword — it would steal supercmo-setup's and generic setup queries.",
+  "schema_version": 2,
+  "trigger_keywords": [
+    "onboard",
+    "onboarding",
+    "set up my brand",
+    "set up our brand",
+    "set up my company profile",
+    "set up our company profile",
+    "company profile",
+    "get started with supercmo",
+    "getting started with supercmo",
+    "new here"
+  ],
+  "cases": [
+    { "id": "tc_generic", "query": "set up my brand for acme.com", "expected_trigger": true },
+    { "id": "tc_onboard", "query": "onboard me, our site is glowskin.co", "expected_trigger": true },
+    { "id": "tc_profile", "query": "build out my company profile so future chats know my brand", "expected_trigger": true },
+    { "id": "tc_started", "query": "i'm getting started with supercmo, what do you need from me", "expected_trigger": true },
+    { "id": "tc_ignore_brandonly", "query": "analyze my brand from our website", "expected_trigger": false },
+    { "id": "tc_ignore_keys", "query": "which api keys do i need to configure", "expected_trigger": false },
+    { "id": "tc_ignore_ugc", "query": "make a ugc video for my serum", "expected_trigger": false },
+    { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

@@ -37,7 +37,6 @@ DEPTHS = {
 # The same resolution generated media uses, so a run's documents land beside everything else the
 # toolchain writes. Duplicated rather than imported: this script travels with the skill and runs on
 # the standard library alone.
-OUTPUT_DIR_ENV = "SUPERCMO_OUTPUT_DIR"
 OUTPUT_DEFAULT = "./supercmo-media"
 
 
@@ -47,8 +46,7 @@ def research_dir():
     Prefer `--out`, taking the value from a response's `saved.output_dir`. That one is settled where
     the working directory is the caller's project; this one resolves against whatever cwd the script
     happens to be run from."""
-    root = os.path.abspath(os.path.expanduser(
-        os.environ.get(OUTPUT_DIR_ENV) or OUTPUT_DEFAULT))
+    root = os.path.abspath(os.path.expanduser(OUTPUT_DEFAULT))
     base = os.path.join(root, "competitor-research",
                         datetime.datetime.now().strftime("%Y-%m-%d-%H%M"))
     candidate, n = base, 2
@@ -399,8 +397,8 @@ def main(argv=None):
                     help="the directory social_research wrote its response files to; "
                          "individual response files also work")
     ap.add_argument("--out", help="output directory — pass a response's `saved.output_dir` "
-                                  "(default: <$SUPERCMO_OUTPUT_DIR or "
-                                  "./supercmo-media>/competitor-research/<date-time>, a folder per run)")
+                                  "(default: ./supercmo-media/competitor-research/<date-time>, "
+                                  "a folder per run)")
     # Required rather than defaulted: depth is a decision the caller has already made, and a silent
     # default would quietly halve a run that was asked to go deep.
     ap.add_argument("--depth", choices=sorted(DEPTHS), required=True)

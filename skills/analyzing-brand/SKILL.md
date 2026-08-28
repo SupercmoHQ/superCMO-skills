@@ -3,7 +3,7 @@ name: analyzing-brand
 description: Analyzes a brand from its own website — its colours and fonts, the logo and imagery it uses, how it sounds, who it sells to, the claims it makes, and what it sells. Reads the site and its pictures with a vision model, and marks anything the site doesn't evidence as unconfirmed rather than guessing. Facts only — nothing is generated, planned or judged here. Use when a brand's guidelines, palette, typography, voice, tone or positioning need establishing, or when another skill needs the brand before it plans or generates.
 license: Apache-2.0
 metadata:
-  version: "0.2.0"
+  version: "0.4.0"
   category: creative
   summary: "Works out your brand from your website — your colours, fonts and logo, how you sound, who you sell to, what you sell, and the claims you stand behind. Anything your site doesn't actually say is written down as unconfirmed rather than invented, so the skills that plan and make your ads work from your real brand."
 ---
@@ -16,9 +16,7 @@ Analyze what a brand is from its **website**.  Not for analyzing a single produc
 
 ### Step 1: Check whether the brand is already known
 
-**Where `get_brand_details` is available, call it first.** A brand that has already been analyzed
-comes back from the tool — hand that back and stop. Re-researching it bills again and tells the user
-nothing new. Where the tool isn't installed, or returns nothing, carry on.
+Read `brand.md` in `./supercmo-company`. Where it already holds this brand, hand it back and stop — re-researching bills again and tells the user nothing new. Carry on where it's missing, where it's a different brand, or where the user asked to re-analyze.
 
 ### Step 2: Check what you were given
 
@@ -27,6 +25,7 @@ nothing new. Where the tool isn't installed, or returns nothing, carry on.
 | A brand website | Carry on. |
 | A product page — Amazon, Shopify, a single listing | Wrong skill. Hand it to `analyzing-products`, and say which you used. |
 | Nothing, or a URL that won't load | Ask for the website. A brand described from memory is invented, not read. |
+| No mode named, by the caller or the brief | Ask whether the user wants to run the analysis in quick mode or detailed mode. Offer quick first and recommend it. Say a detailed mode run also reads the site's photographs with a vision model, which is what gives the photography style, and costs and takes longer for it. |
 
 ### Step 3: Read the site
 
@@ -43,6 +42,8 @@ user for the palette, the typeface and the tagline in one message. **Don't abort
 
 ### Step 4: Look at the pictures
 
+**Quick mode skips this step entirely** — no vision call.
+
 The palette and the type are already covered by Step 3. What the pictures give you that the page's
 markup can't is the brand's **photography style** — the art direction other skills need to generate
 something that looks like it belongs to this brand.
@@ -55,20 +56,11 @@ something that looks like it belongs to this brand.
   backgrounds, who's cast and how they're styled, the colour grading and mood, and what recurs across
   the set versus what's never in frame.
 
-**A download that fails is a gap, not a stop** — carry on. Where the page has no photographs at all,
-there is no photography style to record; say so.
+Where the page has no photographs at all, there is no photography style to record; say so.
 
 ### Step 5: Write it down
 
-Everything this run produces goes in one folder: `brand-analysis/<date-time>` under
-`$SUPERCMO_OUTPUT_DIR` (default `./supercmo-media`), with an `assets/` subfolder for the downloads.
-Make it fresh for this run — where a folder for this minute already exists, add `-2`, `-3`, … rather
-than writing into it.
-
-Download the logo and the hero photographs into `assets/`, then write `brand.md` from what Step 3
-extracted and what Step 4 saw — one file, in the order below. **Where there is no evidence for a
-section, write `unconfirmed — needs user input` and move on — never invent a fact, a number, a colour
-or a claim.**
+Write `brand.md` into `./supercmo-company`, from what Step 3 extracted and what Step 4 saw, in the order below. Create the folder where it doesn't exist. **Where there is no evidence for a section, write `unconfirmed — needs user input` and move on — never invent a fact, a number, a colour or a claim.**
 
 | Section | What goes in it |
 | --- | --- |
@@ -82,26 +74,24 @@ or a claim.**
 | Voice | How the brand writes (`voice_descriptor`), then its own sentences (`voice_examples`), quoted exactly rather than tidied. |
 | Key differentiators | What the brand says sets it apart (`key_differentiators`). |
 | Proof | The checkable claims the brand makes for itself (`proof_points`) — ratings, review and customer counts, named testimonials, awards, guarantees — each quoted exactly as the page wrote it, not paraphrased. |
-| Photography style | What Step 4 found — the shot type, lighting, composition, setting, casting, colour grading and mood, and what recurs across the set versus what is never in frame. |
-| Assets | The logo (`logo_url`) and each hero photograph (`hero_reference_urls`): its path in `assets/`, the URL it came from, and what it shows. A download that fails keeps the URL and says the file is missing. Where the brand sets its name as plain text rather than a mark, say so rather than leaving the logo silently absent. |
+| Photography style | **Detailed runs only** — a quick run leaves the row out; a later detailed run appends it. Write what Step 4 found — the shot type, lighting, composition, setting, casting, colour grading and mood, and what recurs across the set versus what is never in frame. |
+| Assets | The logo (`logo_url`) and each hero photograph (`hero_reference_urls`) as links, with a line on what each shows. Keep the hosted URLs; don't download them. Where the brand sets its name as plain text rather than a mark, say so rather than leaving the logo silently absent. |
 
-New information goes **into** `brand.md` — don't add another file.
+New information goes **into** this one document — don't add another file.
 
-### Step 6: Save it and hand it over
-
-**Where `save_brand_profile` is available, call it with the folder path.** It puts the brand somewhere
-durable, so the next session starts from Step 1 instead of researching again. Where the tool isn't
-installed, the file stays where it is and that is fine.
-
-Give the path either way. **Skills that run after this one in the same session read `brand.md`
-directly**, so pass the path on rather than repeating the contents.
-
-In the reply give the palette, the typography, the voice, the tagline, the differentiators and the
-proof — not the whole file. List every section you marked `unconfirmed`, so the gaps are visible rather than silent.
+**Where `brand.md` already exists**, patch the sections that changed rather than replacing the file.
+Leave every section you have no new evidence for untouched.
 
 Where the site gave nothing usable at all — no palette, and no images — don't write the file. Say
 what was tried and what came back, and ask whether to supply the brand's assets, try another URL, or
 carry on without them.
+
+### Step 6: Hand it over
+
+Give the path to `brand.md`.
+
+In the reply, also give the palette, the typography, the voice, the tagline, the differentiators and the
+proof — not the whole file. List every section you marked `unconfirmed`, so the gaps are visible rather than silent.
 
 ## Edge cases
 
@@ -113,8 +103,7 @@ carry on without them.
 - **The page extracts as an empty shell** — a single-page app that renders nothing to the fetcher →
   say what came back and ask for the brand's colours and fonts directly. Don't write an empty palette
   as if it were the brand's palette.
-- **`get_brand_details` returns a brand the user says is out of date** → research it again, and say
-  which parts changed.
+- **The saved brand is out of date, the user says** → re-analyze, and say which parts changed.
 
 ## Reference
 

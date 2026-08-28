@@ -1,0 +1,31 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. Should-trigger: setting up/configuring SuperCMO, key questions, no_provider_configured. Should-not-trigger: brand onboarding (onboarding-user), generic dev-environment setup, generation requests, and an off-topic control.",
+  "schema_version": 2,
+  "trigger_keywords": [
+    "set up supercmo",
+    "setup supercmo",
+    "supercmo setup",
+    "configure supercmo",
+    "install supercmo",
+    "api key",
+    "api keys",
+    "which keys",
+    "no_provider_configured",
+    "managed key",
+    "byok",
+    "bring your own key",
+    "setup status",
+    "setup_status"
+  ],
+  "cases": [
+    { "id": "tc_generic", "query": "help me set up supercmo on this machine", "expected_trigger": true },
+    { "id": "tc_keys", "query": "which api keys do i need to generate videos", "expected_trigger": true },
+    { "id": "tc_error", "query": "i got no_provider_configured when generating an image", "expected_trigger": true },
+    { "id": "tc_managed", "query": "how does the managed key work, do i need vendor accounts", "expected_trigger": true },
+    { "id": "tc_byok", "query": "i want byok, where do my keys go", "expected_trigger": true },
+    { "id": "tc_ignore_onboard", "query": "onboard me and build my company profile", "expected_trigger": false },
+    { "id": "tc_ignore_devsetup", "query": "set up eslint and prettier in my repo", "expected_trigger": false },
+    { "id": "tc_ignore_gen", "query": "generate a product photo of my mug", "expected_trigger": false },
+    { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "_comment": "Advisory trigger evals — deterministic keyword match, not merge-gating. Should-trigger: naming/refreshing who the brand's competitors are. Should-not-trigger: researching the ads competitors run (researching-competitor-ads), analyzing the user's own brand (analyzing-brand), planning campaigns (planning-campaigns), and an off-topic control. Bare 'competitor(s)' is deliberately NOT a keyword — researching-competitor-ads already claims it.",
+  "schema_version": 2,
+  "trigger_keywords": [
+    "who are my competitors",
+    "who are our competitors",
+    "identify my competitors",
+    "identify our competitors",
+    "find my competitors",
+    "find our competitors",
+    "competitor list",
+    "list of competitors",
+    "main competitors",
+    "refresh my competitors",
+    "who competes with",
+    "who do we compete with",
+    "alternatives to my"
+  ],
+  "cases": [
+    { "id": "tc_generic", "query": "who are my competitors", "expected_trigger": true },
+    { "id": "tc_identify", "query": "identify my competitors for my skincare brand", "expected_trigger": true },
+    { "id": "tc_refresh", "query": "refresh my competitors, we pivoted to b2b", "expected_trigger": true },
+    { "id": "tc_listcompile", "query": "put together a competitor list for acme.com", "expected_trigger": true },
+    { "id": "tc_competeswith", "query": "figure out who competes with us in this space", "expected_trigger": true },
+    { "id": "tc_ignore_ads", "query": "what ads is gymshark running right now", "expected_trigger": false },
+    { "id": "tc_ignore_teardown", "query": "research what ads my competitors are running", "expected_trigger": false },
+    { "id": "tc_ignore_brand", "query": "analyze my brand from our website", "expected_trigger": false },
+    { "id": "tc_ignore_plan", "query": "plan next month's campaign and decide the format mix", "expected_trigger": false },
+    { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
+  ]
+}

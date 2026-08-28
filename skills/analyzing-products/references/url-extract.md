@@ -23,7 +23,7 @@ snippet below) **with a browser User-Agent** — without one, some CDNs return a
 long rather than the image, which then renders broken when generation fetches it:
 
 ```
-SCRATCH="${SUPERCMO_SCRATCH_DIR:-${TMPDIR:-/tmp}/supercmo-work}"; mkdir -p "$SCRATCH"
+SCRATCH="./supercmo-files/product-images/$(date +%Y-%m-%d-%H%M)"; mkdir -p "$SCRATCH"
 curl -sL -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36" -o "$SCRATCH/product_N.jpg" "IMAGE_URL"
 ```
 
