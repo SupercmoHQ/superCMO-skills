@@ -3,7 +3,7 @@ name: planning-campaigns
 description: Decides what to make next — turns the brand, the product, your own running ads and competitor research into the concepts worth testing next. Each concept is a full description of one ad, the buyer it targets, the bet it tests and the evidence it rests on — complete enough for a producer to build from directly. Nothing is generated before the plan is approved — it asks which concepts to build, and only then hands each approved concept to the skill that builds it. Use when the user asks what to make, what to test next, what hooks or angles to try, for campaign concepts, or a creative plan — or wants the whole campaign run end to end, from research to finished ads. Not for a single ad with no plan behind it — that goes straight to the producer skill.
 license: Apache-2.0
 metadata:
-  version: "0.1.0"
+  version: "0.1.2"
   category: creative
   summary: "Decides what your next ads should be. It reads your brand, your product, the ads you already run and what competitors are doing, then writes concepts ranked by what is worth testing — each a full description of one ad, the buyer it targets and the bet it tests, with the proof it rests on and the skill that would build it. Approve the plan and it builds the concepts you pick, one by one, through the specialist skills."
 ---
@@ -36,9 +36,7 @@ Ask them here, and pass the answers down. Don't go on without the product.
 ### Step 2: Gather the context
 
 **Open the run's folder first.** Everything this run produces lives in one place:
-`campaigns/<date-time>` under `$SUPERCMO_OUTPUT_DIR` (default `./supercmo-media`). Make it fresh for
-this run — where a folder for this minute already exists, add `-2`, `-3`, … rather than writing into
-it.
+`campaigns/<date-time>` under `./supercmo-files`. Where a folder for this minute already exists, add `-2`, `-3`, … rather than writing into it.
 
 The plan is built from four inputs. Collect each one; skip one only where the brief already carries
 what it would return.

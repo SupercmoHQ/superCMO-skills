@@ -29,5 +29,8 @@ _signoff-media/
 # generated media output (default ./supercmo-media; tools write here)
 supercmo-media/
 
+# skill working files (default ./supercmo-files; run folders, not committed)
+supercmo-files/
+
 # uv lockfile — the project is stdlib-only (dependencies = []), so it pins nothing
 uv.lock

@@ -41,6 +41,8 @@ PRIORITY = [
     "researching-competitor-ads",
     "analyzing-own-ads",
     "planning-campaigns",
+    "onboarding-user",
+    "supercmo-setup",
 ]
 
 

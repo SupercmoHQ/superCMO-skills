@@ -274,58 +274,8 @@ function runInstall(hosts, opts) {
       console.error(`✗ ${host.label}: ${e.message}`);
     }
   }
-  console.log("");
-  console.log("If the SuperCMO tools don't show up, restart your agent.");
-  console.log("");
-  console.log("Next — set up a key. Two ways, pick one:");
-  console.log("");
-  console.log("  Option A · Managed (one command) — generate on SuperCMO's keys, pay per use:");
-  console.log("      npx --yes github:SupercmoHQ/superCMO-skills login");
-  console.log(
-    "      Opens SuperCMO in your browser to sign in + authorize this device; the key is written",
-  );
-  console.log(
-    `      to ${kf.file} automatically. Buy credits in the web app (no card needed to sign in).`,
-  );
-  console.log("");
-  console.log(
-    "  Option B · Bring your own keys (free) — add a vendor key:",
-  );
-  // Each BYOK key → what it unlocks. WAVESPEED or FAL drives image + video generation (either
-  // one serves every model; WaveSpeed is the recommended default); GEMINI drives image + video
-  // analysis (used across the product, image and video skills); ELEVENLABS drives audio;
-  // FIRECRAWL drives url_extraction. Ordered by how much each one gives you.
-  const KEY_GUIDE = [
-    ["WAVESPEED_API_KEY", "generate images + video (recommended)", "https://wavespeed.ai/dashboard"],
-    ["FAL_KEY", "generate images + video (also supported)", "https://fal.ai/dashboard/keys"],
-    [
-      "GEMINI_API_KEY",
-      "analyze a photo or video",
-      "https://aistudio.google.com/app/apikey",
-    ],
-    [
-      "ELEVENLABS_API_KEY",
-      "generate voiceover + narration",
-      "https://elevenlabs.io/app/settings/api-keys",
-    ],
-    [
-      "FIRECRAWL_API_KEY",
-      "extract data from URLs",
-      "https://www.firecrawl.dev/app/api-keys",
-    ],
-  ];
-  for (const [env, cap, url] of KEY_GUIDE)
-    console.log(`      ${env.padEnd(19)}  ${cap.padEnd(37)}  ${url}`);
-  console.log(
-    `      Start with WAVESPEED_API_KEY (covers image + video). Put keys in ${kf.file}.`,
-  );
-  console.log("");
-  console.log(
-    "  AI agent setting this up: show the user BOTH options and ask which they want —",
-  );
-  console.log(
-    "  do NOT run the login command unless the user chooses the managed option.",
-  );
+  console.log(`
+Installed. Run the supercmo-setup skill to finish setup`);
   return failures;
 }
 

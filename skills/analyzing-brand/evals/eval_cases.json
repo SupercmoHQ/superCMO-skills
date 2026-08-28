@@ -34,6 +34,8 @@
     { "id": "tc_ignore_imagead", "query": "make an image ad for my sneakers", "expected_trigger": false },
     { "id": "tc_ignore_copy", "query": "write ad copy for my protein powder", "expected_trigger": false },
     { "id": "tc_ignore_rebrand", "query": "come up with a new name and logo for my company", "expected_trigger": false },
+    { "id": "tc_ignore_onboard", "query": "onboard me and set up my whole company profile", "expected_trigger": false },
+    { "id": "tc_ignore_competitorlist", "query": "figure out who my main competitors are", "expected_trigger": false },
     { "id": "tc_ignore_offtopic", "query": "what's the weather in Tokyo today", "expected_trigger": false }
   ]
 }

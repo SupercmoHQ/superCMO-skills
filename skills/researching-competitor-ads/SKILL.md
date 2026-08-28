@@ -3,7 +3,7 @@ name: researching-competitor-ads
 description: Analyzes the ads competitors are running — the ones live now, the ones they have already stopped, and which have run longest. Watches the video ads and reads the image ads with a vision model, so every finding comes from the ad itself rather than its caption. Finds the patterns across the set — what is holding, what was dropped, and what nobody runs. Research only — nothing is generated or recommended here. Use when the user wants competitor ads researched, an ad teardown, a competitive or category analysis, to see what ads a named brand is running, or to find what is working and what nobody has tried yet.
 license: Apache-2.0
 metadata:
-  version: "0.3.0"
+  version: "0.3.2"
   category: creative
   summary: "Analyzes what your competitors are advertising and shows you what is actually working — the ads that have run longest, the ones they quietly dropped, and what the winners have in common. A vision model watches the image and video ads that carry the signal — the long-runners, the ones just launched, the ones they dropped — the whole way through. So you learn how each one is built: the hook, the pacing, when the product lands, the proof and the offer. You also get the angles nobody in your category has taken."
 ---
@@ -20,8 +20,8 @@ next is `planning-campaigns`' job.
 
 Three ways to find out. Try them in order, and stop at the first one that works.
 
-- **Read them from the brand profile.** Where `get_competitors` is available, use what it returns.
-  Where the tool isn't installed, or returns nothing, move on.
+- **Read them from `competitors.md`** in `./supercmo-company`. Where it
+  is absent or empty, move on.
 - **Ask the user**, for a name and a website for each competitor.
 - **Find candidates**, only where the user doesn't know. Call `url_extraction` on the user's own
   website to learn what they sell in their own words, then `social_research` on `meta_ad_library` /

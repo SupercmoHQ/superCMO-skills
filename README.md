@@ -87,10 +87,10 @@ The best part? You stay in charge all along.
 
 ## Quick start
 
-**Paste this to your coding agent** (Claude Code, Cursor, Codex, …):
+**Paste this to your coding agent** (Cursor, Codex, …):
 
 ```
-Run `npx --yes github:SupercmoHQ/superCMO-skills --all`. Tell me whether it succeeded, then follow the next steps it prints to set up a key.
+Run `npx --yes github:SupercmoHQ/superCMO-skills --all`. Once it's installed, run the supercmo-setup skill to complete the setup.
 ```
 
 Prefer to run it yourself:
@@ -98,6 +98,8 @@ Prefer to run it yourself:
 ```bash
 npx --yes github:SupercmoHQ/superCMO-skills --all   # every detected host
 ```
+
+Run the **supercmo-setup** skill or ask your agent to "set me up".
 
 Prefer a preview before spending? Every generation supports `dry_run` — the exact request and cost, no API call.
 
@@ -193,6 +195,8 @@ These are the discrete skills installed into your agent to run that pipeline:
 | [researching-competitor-ads](skills/researching-competitor-ads/) | Analyzes what your competitors are advertising and shows you what is actually working — the ads that have run longest, the ones they quietly dropped, and what the winners have in common. A vision model watches the image and video ads that carry the signal — the long-runners, the ones just launched, the ones they dropped — the whole way through. So you learn how each one is built: the hook, the pacing, when the product lands, the proof and the offer. You also get the angles nobody in your category has taken. |
 | [analyzing-own-ads](skills/analyzing-own-ads/) | Audits your own advertising the way you would a competitor's — pulling every ad you run from the public library and watching the creative the whole way through. You get the map of what you already cover: which angles, hooks and formats you run, which ads have held longest, what you quietly stopped and how fast, and which winners are still carrying the account with nothing newer built beside them. |
 | [planning-campaigns](skills/planning-campaigns/) | Decides what your next ads should be. It reads your brand, your product, the ads you already run and what competitors are doing, then writes concepts ranked by what is worth testing — each a full description of one ad, the buyer it targets and the bet it tests, with the proof it rests on and the skill that would build it. Approve the plan and it builds the concepts you pick, one by one, through the specialist skills. |
+| [onboarding-user](skills/onboarding-user/) | Sets your brand up from one link. Give it your website and it works out who you are — your voice, your audience, what you sell — finds who you compete with, and writes both where every future session will find them. |
+| [supercmo-setup](skills/supercmo-setup/) | Gets you from installed to generating in a few simple steps |
 | [adapting-formats](skills/adapting-formats/) | Takes an ad you already have and remakes it in every other size you need it in. It reads your ad first, works out what has to move and what fills the space the new shape opens up, and shows you that plan before it spends anything — then rebuilds each shape around the original so your product, palette and wording stay recognisably the same rather than being stretched, cropped or letterboxed into a mess. |
 | [analyzing-brand](skills/analyzing-brand/) | Works out your brand from your website — your colours, fonts and logo, how you sound, who you sell to, what you sell, and the claims you stand behind. Anything your site doesn't actually say is written down as unconfirmed rather than invented, so the skills that plan and make your ads work from your real brand. |
 | [analyzing-products](skills/analyzing-products/) | Analyzes an e-commerce link or photo to map out your product's exact physical mechanics and extract clean reference images, building a highly accurate creative brief without any manual research or extraction. |
@@ -201,6 +205,7 @@ These are the discrete skills installed into your agent to run that pipeline:
 | [generating-images](skills/generating-images/) | Routes your brief to the best of 10+ SOTA image models (like Nano Banana, GPT Image), writes detailed prompts as per model specifications and generates multiple variations instantly. |
 | [generating-storyboards](skills/generating-storyboards/) | Draws out your entire video concept clip-by-clip as static images, enforcing strict character and product continuity so you can approve camera angles and visual flow before committing to expensive video renders. |
 | [generating-videos](skills/generating-videos/) | Routes your brief to the best of 10+ SOTA video models (like Veo, Seedance), writes detailed prompts as per model specifications and generates multi-clip stories that hold continuity across cuts, stitched into one file. |
+| [identifying-competitors](skills/identifying-competitors/) | Finds who a brand competes with: searches the web for the alternatives buyers compare it against, proposes a shortlist with a source per name, and confirms the real ones for other skills to build on. |
 | [writing-ad-copy](skills/writing-ad-copy/) | Writes the text that runs alongside your ad — headline, primary text, description and call to action — tuned to the fields and best practices of each platform it runs on: Facebook and Instagram, Google Search, LinkedIn, TikTok, X and Reddit. It works one angle several ways and sizes each field so nothing gets cut off in the feed. |
 | [writing-video-prompts](skills/writing-video-prompts/) | Translates your scenes into the highly specific, detailed instructions that different video models require. It times the camera motion and steers around known AI rendering limits to match your exact visual brief. |
 | [writing-video-scripts](skills/writing-video-scripts/) | Drafts spoken scripts built around proven opening hooks designed specifically to stop the scroll. It sizes the text to fit your exact runtime and paces words across natural breath points for human delivery. |

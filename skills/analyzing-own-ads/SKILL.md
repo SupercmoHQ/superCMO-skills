@@ -3,7 +3,7 @@ name: analyzing-own-ads
 description: Audits the ads a company is running itself — what's live now, what it has already stopped, and which have run longest. Watches the video ads and reads the image ads with a vision model, then maps what the account already covers — the angles, hooks, formats and offers — what was dropped and how fast, and which long-runners have nothing newer beside them. Read from the public ad library, so it carries run lengths rather than spend or results. Research only — nothing is generated or changed here. Use when the user wants their own ads audited, wants to know what they are running, which of their ads is holding, what they already cover, or whether anything is going stale.
 license: Apache-2.0
 metadata:
-  version: "0.1.0"
+  version: "0.1.2"
   category: creative
   summary: "Audits your own advertising the way you would a competitor's — pulling every ad you run from the public library and watching the creative the whole way through. You get the map of what you already cover: which angles, hooks and formats you run, which ads have held longest, what you quietly stopped and how fast, and which winners are still carrying the account with nothing newer built beside them."
 ---
@@ -22,8 +22,8 @@ that is `planning-campaigns`.
 
 You need **a brand name and a website**.
 
-- **Read them from the brand profile.** Where `get_brand_details` is available, use what it returns.
-  Where the tool isn't installed, or returns nothing, move on.
+- **Read them from the brand profile** in `./supercmo-company`, where
+  one exists. Where it doesn't, move on.
 - **Ask the user** for whichever is missing.
 - **A website but no name** → take the brand name off the site and carry on.
 
