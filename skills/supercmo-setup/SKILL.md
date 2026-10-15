@@ -57,6 +57,8 @@ Offer it — "keys work; want me to set up your brand from your website?" — an
 
 ### Step 5: Suggest what to do next
 
+Skip this step where `onboarding-user` ran in Step 4: it already closed with the same list.
+
 Close with this list:
 
 - **Create a UGC video** — a creator-style video for your product.

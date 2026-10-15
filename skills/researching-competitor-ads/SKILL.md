@@ -29,8 +29,9 @@ Three ways to find out. Try them in order, and stop at the first one that works.
   of those advertiser names with the number of ads each appeared on, most ads first — nothing else —
   and ask which are real competitors.
 
-You need **a name and a website** for each competitor whichever route you take. Step 3 uses the domain
-to prove the ads came from the right company.
+You need **a name** for each competitor, and a website where there is one: Step 3 uses the domain to
+prove the ads came from the right company. A competitor saved as "website unconfirmed" needs no
+question: Step 3 checks its page by what its ads sell, and takes its website from the ads.
 
 ### Step 2: Scope the run
 
