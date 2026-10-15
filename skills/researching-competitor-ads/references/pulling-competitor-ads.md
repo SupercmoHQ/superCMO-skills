@@ -66,6 +66,11 @@ Even with a page id, check the first page of ads against what the user gave you:
 - **Both disagree** → wrong page. Go back to the candidate list rather than pulling more of it.
 - **All the ads don't come from one advertiser** → you are on `search_ads`, not `company_ads`.
 
+**A competitor with "website unconfirmed"** has no domain to compare, and its name proves nothing —
+the page was found by that name. Accept the page where what its ads sell matches what `brand.md` says the brand sells;
+otherwise treat it as the wrong page. Where its ads link to the competitor's own site, write that
+domain into `competitors.md` in place of "website unconfirmed".
+
 ## Step 3: Reach the long-running ads, then page to the depth's limit
 
 **There is no run-length sort.** `sort_by` takes `total_impressions` or `relevancy_monthly_grouped`,

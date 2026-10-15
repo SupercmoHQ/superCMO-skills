@@ -18,7 +18,7 @@ Analyze what a brand is from its **website**.  Not for analyzing a single produc
 
 Read `brand.md` in `./supercmo-company`. Where it already holds this brand, hand it back and stop — re-researching bills again and tells the user nothing new. Carry on where it's missing, where it's a different brand, or where the user asked to re-analyze. A
 request for a detailed run of a brand already saved is a re-analysis too: run Step 3 again for a
-fresh screenshot (its link expires within a day), then Step 4 in detailed mode with the hero photos
+fresh screenshot (its link doesn't last), then Step 4 in detailed mode with the hero photos
 from `brand.md`'s Assets, and patch only what they add.
 
 ### Step 2: Check what you were given
@@ -30,6 +30,10 @@ from `brand.md`'s Assets, and patch only what they add.
 | Nothing, or a URL that won't load | Ask for the website. A brand described from memory is invented, not read. |
 | No mode named, by the caller or the brief | Run quick mode. Don't ask: detailed mode runs only when the caller or the user asks for it. |
 
+**When another skill runs this one** (onboarding, a campaign plan), ask the user nothing: report a
+missing website or a site that couldn't be read back to that skill, and skip Step 6's hand-over — the
+calling skill gives the one reply.
+
 ### Step 3: Read the site
 
 Call `url_extraction` with the homepage as the `url` and **no `prompt` or `schema`**. It returns the
@@ -37,37 +41,43 @@ page's own text in `data.markdown`, and beside it `branding` — the colours, fo
 actually renders — and `screenshot`, a picture of the page as a visitor first sees it. Read the
 brand's identity off the text yourself, as `references/reading-the-brand.md` lays out: the brand's
 name, what it sells, the logo, the tagline, how it writes, who it sells to, what sets it apart, and
-the proof it offers for it. Take the palette and the type from `branding` only, and keep the
-screenshot for Step 4.
+the proof it offers for it. `metadata.title` and `metadata.description` are the brand's own words too:
+use them where the text is thin. Keep `branding` and the screenshot for Step 4.
 
-Treat the call as failed when it comes back empty, unauthorized, a 4xx, or an anti-bot challenge — a
-wall of markup with no brand text in it is a challenge, not a minimal site. A challenge or a
-password page fails even when `branding` and a screenshot came back with it: those show the wall,
-not the brand, so use neither. A failed call leaves nothing to read: say the site couldn't be read,
-and handle it as Step 2's URL that won't load. Where only the text came back empty — a single-page
-app the reader can't see into — `branding` and the screenshot still read the rendered page: take the
-name from `metadata.title`, have Step 4 also read the name, headline and what's on sale off the
-screenshot, and carry on without asking the user.
+The read failed when the call returns `ok: false`, or when Step 4 finds the page is an error, login or
+bot-check page rather than the brand's own site — never just because there is little text. Then say
+the site couldn't be read, and handle it as Step 2's URL that won't load. Where the text is short or
+empty but the screenshot shows the brand's site, carry on: take the name from `metadata.title`, add
+"What does this screen show for sale?" to the screenshot's prompt, and don't ask the user.
 
 ### Step 4: Look at the pictures
 
 Both modes run this step; they differ only in how many photographs they read. What the pictures give
 you that the page's markup can't is the brand's **photography style** — the art direction other skills
-need to generate something that looks like it belongs to this brand.
+need to generate something that looks like it belongs to this brand — and a check on `branding`.
 
-- **Quick mode reads Step 3's `screenshot` alone** — one `image_analysis` call. It shows the page's
-  photographs as they sit on the page, which is what the art direction is.
+- **Quick mode reads Step 3's `screenshot` alone** — one `image_analysis` call.
 - **Detailed mode adds the hero photographs** Step 3 found: one `image_analysis` call with the
   screenshot and up to 9 photographs as entries in `requests`, so they are read at once rather than
   one after another. **Give every entry its own `prompt`** — with `requests`, a prompt beside them is
   ignored. Each picture is read on its own and billed on its own; put the style together from what
   they have in common.
-- Ask for the brand's photography style: what kind of shots these are (product-only, lifestyle,
-  on-model), how they're lit, how they're composed and framed, the settings and backgrounds, who's
-  cast and how they're styled, the colour grading and mood, and what recurs versus what's never in
-  frame.
-- **Where `branding` came back without colours or fonts**, ask the same call for the colours that
-  recur in the pictures, as hex codes, and how the headline type looks.
+
+The screenshot's prompt asks, in this order:
+
+1. Is this an error, login or bot-check page rather than the brand's own site? Yes or no. A yes is a
+   failed read (Step 3): stop, and use nothing from this call.
+2. The photography style, in about 120 words: what kind of shots these are (product-only, lifestyle,
+   on-model), how they're lit, framed and set, who's cast and how they're styled, the colour grading
+   and mood, and what recurs versus what's never in frame.
+3. The colours `branding` lists, given with their roles: which are the brand's own, and which belong to
+   something embedded on the page, like a video player or a chat widget? A colour that doesn't show on
+   this first screen still counts as the brand's — the page uses it further down. Where `branding` has
+   none, or none are the brand's, the colours the page visibly uses, as hex codes. And what colour is
+   the page's background?
+4. The main headline and the body text: is the headline set inside a picture, and how does each look?
+
+A photograph's prompt asks only question 2.
 
 Where there is no screenshot and no photograph, there is no photography style to record; say so.
 
@@ -80,26 +90,29 @@ Write `brand.md` into `./supercmo-company`, from what Step 3 extracted and what 
 | Name | The brand's own name (`brand_name`), spelled as the brand spells it. |
 | What it sells | The category the business is in and what a customer actually buys (`what_it_sells`), plus how it is sold. |
 | Source | The homepage this was read from, and the date it was read. |
-| Palette | Each colour from `branding` with its role, read as `references/reading-the-brand.md` says. An achromatic brand is a real palette, not a missing one. Where `branding` has no colours, the colours Step 4 read off the pictures, marked as read from the pictures. Unconfirmed only where neither has any. |
-| Typography | The heading and body faces from `branding`, read as `references/reading-the-brand.md` says, copied exactly. Where `branding` has no fonts, how Step 4 saw the headline type, as a description rather than a font name. Unconfirmed only where neither has any. |
+| Palette | The colours Step 4 kept as the brand's own, read as `references/reading-the-brand.md` says. Colours Step 4 read off the screenshot itself are marked as read from it. An achromatic brand is a real palette, not a missing one. Unconfirmed only where there are none. |
+| Typography | The heading and body faces from `branding`, read as `references/reading-the-brand.md` says, each with Step 4's description of how it looks beside it. Where the description plainly contradicts the name — a monospaced look for a face named as a sans, say — write what Step 4 saw and leave the name out. Type set inside a picture is art direction: it goes under Photography style. Where `branding` names no fonts, Step 4's descriptions. Unconfirmed only where neither has any. |
 | Tagline | The line the brand leads with (`tagline`). |
 | Target audience | Who the page says it sells to (`target_audience`), in the page's own terms — carried as it came back, never expanded beyond what the page evidenced. |
 | Voice | How the brand writes (`voice_descriptor`), then its own sentences (`voice_examples`), quoted exactly rather than tidied. |
 | Key differentiators | What the brand says sets it apart (`key_differentiators`). |
 | Proof | The checkable claims the brand makes for itself (`proof_points`) — ratings, review and customer counts, named testimonials, awards, guarantees — each quoted exactly as the page wrote it, not paraphrased. |
-| Photography style | Write what Step 4 found — the shot type, lighting, composition, setting, casting, colour grading and mood, and what recurs across the set versus what is never in frame. |
+| Photography style | Write what Step 4 found — the shot type, lighting, composition, setting, casting, colour grading and mood, any type set inside banner images, and what recurs across the set versus what is never in frame. |
 | Assets | The logo (`logo_url`, or `branding.logo` where the page text gives none) and each hero photograph (`hero_reference_urls`) as links, with a line on what each shows. Keep the hosted URLs; don't download them. Where the brand sets its name as plain text rather than a mark, say so rather than leaving the logo silently absent. |
 
 New information goes **into** this one document — don't add another file.
 
-**Where `brand.md` already exists**, patch the sections that changed rather than replacing the file.
-Leave every section you have no new evidence for untouched.
+**Where `brand.md` already exists for this brand**, patch the sections that changed rather than
+replacing the file, and leave every section you have no new evidence for untouched. Where it holds a
+different brand, replace it.
 
 Where the site gave nothing usable at all — no palette, and no images — don't write the file. Say
 what was tried and what came back, and ask whether to supply the brand's assets, try another URL, or
 carry on without them.
 
 ### Step 6: Hand it over
+
+When another skill runs this one, skip this step: that skill gives the reply.
 
 Give the path to `brand.md`.
 

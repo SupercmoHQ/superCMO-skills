@@ -14,11 +14,12 @@ URL_EXTRACTION = {
         "Extract structured data from a web page — a product listing (Amazon, Shopify, AliExpress, "
         "any store) or any URL — guided by a prompt and/or a JSON schema. Returns the requested "
         "fields (e.g. name, brand, price, description, specs) and any gallery image URLs as a compact "
-        "JSON object — not the page's full text — plus the colours, fonts and logo the page renders "
-        "(branding), a screenshot URL of the page as a visitor first sees it, and page metadata. Omit "
-        "both prompt and schema to get the page's own text (markdown) instead, which costs less. "
-        "Use when you need specific data, image URLs or the text of a page. Set dry_run=true to "
-        "preview the exact request without spending."
+        "JSON object — not the page's full text — plus page metadata. Omit both prompt and schema "
+        "to get the page's own text (markdown) instead, which costs less, together with the colours, "
+        "fonts and logo the page renders (branding) and a screenshot URL of the page as a visitor "
+        "first sees it. A page that answers HTTP 400 or above comes back as a failed read. Use when "
+        "you need specific data, image URLs or the text of a page. Set dry_run=true to preview the "
+        "exact request without spending."
     ),
     "inputSchema": {
         "type": "object",

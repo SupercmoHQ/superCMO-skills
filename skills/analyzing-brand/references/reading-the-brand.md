@@ -73,27 +73,24 @@ writing: the page text is long, and a field skipped is a gap that was never real
 ## The palette and the type
 
 Take them from the call's `branding` result, which reads them off the rendered page — never from the
-page's text, which carries no styles. The values are real; the role names are the
-reader's best guess, so write each one with the role it came with.
+page's text, which carries no styles. The skill's Step 4 checks them against the screenshot.
 
 - **Palette** — `branding.colors`, each key (`primary`, `secondary`, `accent`, `background`,
-  `textPrimary`, `link`) with its hex. Leave out a text colour that barely contrasts with the
-  background: that is a misread, not the brand's text. An achromatic brand really is black, white and
-  grey; that is a palette, not a missing one.
-- **Typography** — the heading face is the first name in `branding.typography.fontStacks.heading`, the
-  body face the first in `fontStacks.body`, copied exactly; where there are no stacks, take
-  `typography.fontFamilies.heading` and `.primary`. `branding.fonts` gives each family's role
-  where the stacks don't (a `monospace` face is for labels and code, not the body). A stack that starts
-  with a generic or system font (`system-ui`, `ui-sans-serif`, `-apple-system`, `sans-serif`, `serif`)
-  names no brand face: write it as the system font. Where nothing names a heading face, the heading is
-  unconfirmed.
+  `textPrimary`, `link`) with its hex; the role names are the reader's guess. Keep the colours Step 4
+  says are the brand's own. Write each colour once, with every role it came with — two colours that
+  look the same are one: keep the one listed first. Leave out a text colour that barely contrasts with the background the screenshot shows: that is a
+  misread, not the brand's text. An achromatic brand really is black, white and grey; that is a
+  palette, not a missing one.
+- **Typography** — the heading face is `typography.fontFamilies.heading`, the body face
+  `typography.fontFamilies.primary`. Copy the family name without weight words like Regular or Bold;
+  the skill's Step 4 adds how each one looks on the page.
 
 - **Logo** — `branding.logo` is the mark the page renders in its header. Use it where the page
   text gives no `logo_url`. Where neither gives a link, the page may draw its logo inline: say the
   logo isn't available as a link, not that the brand has none.
 
 Where `branding` is missing or carries no colours or fonts, the skill's Step 4 reads them off the
-screenshot and the photographs instead. Only where those show none either is that part unconfirmed.
+screenshot instead. Only where that shows none either is that part unconfirmed.
 
 ## Traps
 

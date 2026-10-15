@@ -33,28 +33,35 @@ Search the web with queries like:
 - `alternatives to <brand>` — how buyers who already know the brand shop around.
 - `best <category> for <audience>` — how buyers who don't yet know the brand find the category.
 
-The search comes back with an answer and the source it drew from. Take the competitor names and websites from there. Where a query returns nothing, vary the category words and search again.
+The search comes back with an answer and the source it drew from. Take the competitor names from there, and each website from a result or an ad's `landing_url` that links to the competitor's own site — not
+a store, marketplace or social page. Where a result names a competitor without its site, search its
+name for its official site. Where nothing shows one, write "website unconfirmed" — never a
+domain from memory. Where a query returns nothing, vary the category words and search again.
 
 **Every candidate needs a source** — the search result that named it. Don't add competitors from memory.
 
-Where search runs thin — a niche category, a non-English market — `social_research` on `meta_ad_library` / `search_ads` with the category words shows who actually advertises in the space. **It spends credits: say so and wait for a yes.** Under
-a brief that skips confirmation, run it without asking.
+Where search runs thin — a niche category, a non-English market — `social_research` on `meta_ad_library` / `search_ads` with the category words shows who actually advertises in the space. Pass `country` for the market the brand sells in, where its page or `brand.md` shows it; where
+nothing does, leave it out. **It spends credits: say so and wait for a yes.** Under a brief that skips
+confirmation, run it without asking.
 
 ### Step 5: Confirm
 
 Show 3–5 top competitor candidates in one message — name, website, and one line on why it competes. Ask which are real, which to drop, and who is missing.
 
-**Where the brief says to skip confirmation**, save the shortlist without waiting.
+**Where the brief says to skip confirmation**, don't stop to show the candidates or ask: save the
+shortlist without waiting.
 
 ### Step 6: Hand it over
 
-Write the confirmed list to `competitors.md` in `./supercmo-company` — one line each, the name then
-its website. Create the folder where it doesn't exist.
+Write the confirmed list to `competitors.md` in `./supercmo-company` — a heading naming the brand,
+then one line each, the name then its website. Create the folder where it doesn't exist.
 
-**Where `competitors.md` already exists**, merge into it: keep the competitors already listed unless
-the user dropped them, and add the new ones.
+**Where `competitors.md` already exists for this brand**, merge into it: keep the competitors already
+listed unless the user dropped them, and add the new ones. Where it holds another brand's competitors,
+replace it.
 
-Close by showing the list and giving the path.
+Close by showing the list and giving the path — unless another skill is running this one: then skip
+the hand-over, and that skill gives the reply.
 
 ## Edge cases
 
