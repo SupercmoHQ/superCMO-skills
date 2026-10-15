@@ -37,7 +37,8 @@ The search comes back with an answer and the source it drew from. Take the compe
 
 **Every candidate needs a source** — the search result that named it. Don't add competitors from memory.
 
-Where search runs thin — a niche category, a non-English market — `social_research` on `meta_ad_library` / `search_ads` with the category words shows who actually advertises in the space. **It spends credits: say so and wait for a yes.**
+Where search runs thin — a niche category, a non-English market — `social_research` on `meta_ad_library` / `search_ads` with the category words shows who actually advertises in the space. **It spends credits: say so and wait for a yes.** Under
+a brief that skips confirmation, run it without asking.
 
 ### Step 5: Confirm
 
@@ -59,5 +60,5 @@ Close by showing the list and giving the path.
 
 - **`error: "no_provider_configured"`** on any tool → relay the tool's `hint` (the user must set their key).
 - **A candidate is a retailer, marketplace or comparison site** → not a competitor unless the user says so. Say why you dropped it.
-- **The brand sells in several countries** → competitors differ by market. Ask which one this list is for rather than mixing them.
+- **The brand sells in several countries** → competitors differ by market. Ask which one this list is for rather than mixing them; under a brief that skips confirmation, take the market the site leads with and say which.
 - **The user wants those competitors' ads researched** → that is `researching-competitor-ads`. Hand over and say which competitors you used.

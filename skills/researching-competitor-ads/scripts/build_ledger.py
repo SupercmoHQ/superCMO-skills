@@ -28,8 +28,10 @@ from collections import Counter, OrderedDict, defaultdict
 
 # Every number is per competitor: what the ledger keeps, and what gets watched. Live and stopped are
 # budgeted separately so a competitor's live creative is never crowded out by what it has dropped.
+# Watching is what costs (one vision call per ad); the kept rows are read in full either way, so a
+# quick scan watches only each competitor's longest-runners and still reads every row's metadata.
 DEPTHS = {
-    "quick":    {"keep_live": 30, "keep_stopped": 30, "watch_live": 10, "watch_stopped": 10},
+    "quick":    {"keep_live": 30, "keep_stopped": 30, "watch_live": 4, "watch_stopped": 2},
     "detailed": {"keep_live": 60, "keep_stopped": 60, "watch_live": 20, "watch_stopped": 20},
 }
 

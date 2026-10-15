@@ -824,7 +824,10 @@ def audio_generate(text=None, type="speech", model=None, voice=None, speed=None,
 # ------------------------------------------------------------------------- extract
 def url_extraction(url, prompt=None, schema=None, model=None, dry_run=False, call_id=None):
     """Structured extraction from a web/product URL (fields + image URLs), guided by a prompt or
-    JSON schema. Returns {ok, data, metadata} | {ok: False, error, ...}. Returns data, not media."""
+    JSON schema; without either, `data` is the page's own text ({markdown, truncated}), which costs
+    less. Returns {ok, data, branding, screenshot, metadata} | {ok: False, error, ...}: `branding`
+    is the colours, fonts and logo the page renders, `screenshot` a URL of the page as a visitor first
+    sees it. Returns data, not media."""
     url = (url or "").strip() if isinstance(url, str) else ""
     if not url:
         return {"ok": False, "error": "url is required (an http(s) URL)."}
@@ -1230,7 +1233,13 @@ if __name__ == "__main__":
     assert url_extraction("https://x/p", dry_run=True)["error"] == "no_provider_configured"
     assert url_extraction("not a url")["error"].startswith("url must be")
     os.environ["FIRECRAWL_API_KEY"] = "k"
-    assert url_extraction("https://x/p", prompt="get name", dry_run=True)["route"] == "firecrawl"
+    _rx = url_extraction("https://x/p", prompt="get name", dry_run=True)
+    assert _rx["route"] == "firecrawl", _rx
+    # colours and fonts come from the rendered page (branding), never the text-only JSON reader
+    assert "branding" in _rx["request"]["body"]["formats"], _rx
+    # no prompt or schema: the page's own text, not the JSON reader
+    _rp = url_extraction("https://x/p", dry_run=True)
+    assert _rp["request"]["body"]["formats"][0] == "markdown", _rp
 
     # analysis: BYO gemini serves it (vision via generateContent)
     _clear()

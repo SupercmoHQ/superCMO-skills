@@ -18,6 +18,18 @@ Just provide a product photo and a brief. The agent extracts the product details
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/SupercmoHQ/superCMO-skills/validate.yml?branch=main&label=CI)](https://github.com/SupercmoHQ/superCMO-skills/actions)
 
+**Install in one command** — into Claude Code, Cursor and Codex, whichever you have (needs
+[`uv`](https://docs.astral.sh/uv/getting-started/installation/)):
+
+```bash
+npx --yes github:SupercmoHQ/superCMO-skills --all
+```
+
+For Cursor, run it in your project with `--cursor --project-dir .` so the skills land there too.
+
+Then ask your agent to "set me up": bring your own model keys, or sign in and pay per use with SuperCMO's.
+If the skills are useful to you, a ⭐ helps other people find them.
+
 <details open>
 <summary><strong>UGC video</strong></summary>
 
@@ -57,6 +69,7 @@ Just provide a product photo and a brief. The agent extracts the product details
 
 - [See how it works](#see-how-it-works)
 - [Quick start](#quick-start)
+- [Hosted SuperCMO](#hosted-supercmo)
 - [Start from a product photo](#start-from-a-product-photo)
 - [Why SuperCMO Skills?](#why-supercmo-skills)
 - [How the skills work together](#how-the-skills-work-together)
@@ -102,6 +115,21 @@ npx --yes github:SupercmoHQ/superCMO-skills --all   # every detected host
 Run the **supercmo-setup** skill or ask your agent to "set me up".
 
 Prefer a preview before spending? Every generation supports `dry_run` — the exact request and cost, no API call.
+
+---
+
+## Hosted SuperCMO
+
+Rather not set anything up? [SuperCMO](https://getsupercmo.ai) runs these same skills for you, in the
+browser:
+
+- **No setup** — sign in and start; nothing to install, no keys to manage.
+- **A workspace per brand** — a private sandbox where the agent runs code and keeps your files.
+- **Publishing** — connect your accounts, approve a post, and it goes out to Instagram (Business
+  account), a Facebook Page, LinkedIn (your profile), YouTube or Reddit.
+- **A calendar** — your scheduled posts and recurring tasks in one place, to edit or cancel.
+
+[Try SuperCMO →](https://getsupercmo.ai)
 
 ---
 
@@ -334,6 +362,8 @@ used and prioritize. Full details in [`TELEMETRY.md`](TELEMETRY.md).
 ## Community
 
 Questions, ideas, or something you built? [Open an issue or discussion](https://github.com/SupercmoHQ/superCMO-skills/issues).
+Kshitiz ([@kshitizkgp](https://github.com/kshitizkgp)) reads every new issue and replies within one
+working day.
 
 ## Contributing
 

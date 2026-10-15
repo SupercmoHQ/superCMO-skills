@@ -40,7 +40,7 @@ already answers.
 | Ask | When | How |
 | --- | --- | --- |
 | **The country the ads run in** | The brief names no market and the user's own site implies none. | Offer the likely markets, and a way to type another. |
-| **How deep to go** | The brief doesn't say. | Offer the quick scan first and recommend it; say a detailed analysis doubles what is watched per competitor, and costs accordingly. |
+| **How deep to go** | The brief doesn't say. | Offer the quick scan first and recommend it; say a detailed analysis watches many more ads per competitor, and costs accordingly. |
 | **What they want to learn** | Optional, and only where the brief says nothing at all about what the research is for. | **One open field, no options to choose from.** Ask what they want to come away knowing. |
 
 **Take whatever the brief says about what they are after, in their own words, and don't ask again.**
@@ -55,7 +55,7 @@ Every number is per competitor, so a run costs what it costs times the number of
 
 | Depth | Ads kept, live / stopped | Ads watched, live / stopped |
 | --- | --- | --- |
-| Quick scan | 30 / 30 | 10 / 10 |
+| Quick scan | 30 / 30 | 4 / 2 |
 | Detailed analysis | 60 / 60 | 20 / 20 |
 
 ### Step 3: Pull each competitor's ads

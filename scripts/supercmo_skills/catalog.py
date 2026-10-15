@@ -48,6 +48,12 @@ _WS_SIZE = {"1:1": "1024*1024", "16:9": "1344*768", "9:16": "768*1344", "4:3": "
             "3:4": "896*1152", "4:5": "896*1120", "21:9": "1536*640"}
 
 
+# fal's custom image_size {width, height}: ~1MP at every exposed ratio, sides multiples of 16 (the
+# same pixels as _WS_SIZE). For a fal model whose presets cover only 5 ratios (gpt-image-2.5).
+_FAL_WH = {r: {"width": int(w), "height": int(h)}
+           for r, (w, h) in ((r, v.split("*")) for r, v in _WS_SIZE.items())}
+
+
 def _fal(id, edit_id, max_refs, size_style, sizes, defaults, supports, price):
     """Build a fal image route."""
     return {"provider": "fal", "id": id, "edit_id": edit_id, "max_refs": max_refs,
@@ -189,6 +195,56 @@ IMAGE_MODELS = {
             {"prompt", "image_urls", "image_size", "num_inference_steps", "guidance_scale", "num_images",
              "output_format", "enable_safety_checker", "safety_tolerance", "sync_mode", "seed"},
             "$0.03/MP")],
+    },
+    "nano-banana-2.1": {
+        "display": "Nano Banana 2.1 (Gemini Flash Image)",
+        "strengths": "newest Nano Banana: better visual design, subject consistency and prompt adherence; "
+        "accurate multilingual text; up to 14 references; 1k to 4k",
+        "routes": [_ws(
+            "google/nano-banana-2.1/text-to-image", "google/nano-banana-2.1/edit", 14, "aspect_ratio",
+            _WS_RATIO_ALL, {"output_format": "png"},
+            {"prompt", "images", "aspect_ratio", "resolution", "output_format",
+             "enable_web_search", "enable_image_search"},
+            "$0.04/image (1k); $0.06 2k, $0.135 4k", resolutions=["1k", "2k", "4k"]),
+            _fal(
+            "google/nano-banana-2.1", "google/nano-banana-2.1/edit", 4, "aspect_ratio", _RATIO_PRO,
+            {"num_images": 1, "output_format": "png", "resolution": "1K", "safety_tolerance": "4"},
+            {"prompt", "image_urls", "aspect_ratio", "num_images", "output_format", "resolution",
+             "safety_tolerance", "seed", "sync_mode", "enable_web_search", "limit_generations"},
+            "see fal.ai/models")],
+    },
+    "gpt-image-2.5": {
+        "display": "GPT Image 2.5 (OpenAI)",
+        "strengths": "newest GPT Image (the precision tier): fine detail, text rendering for logos, "
+        "posters, ads and packshots; up to 16 references",
+        # The "sunburst" tier on both lanes: OpenAI's precision tier, same price as the fast "flare".
+        "routes": [_ws(
+            "openai/gpt-image-2.5-sunburst/text-to-image", "openai/gpt-image-2.5-sunburst/edit", 16,
+            "aspect_ratio", _WS_RATIO_ALL, {"quality": "medium", "output_format": "png"},
+            {"prompt", "images", "aspect_ratio", "resolution", "quality", "output_format"},
+            "$0.024/image (medium, 1k); $0.04 2k, $0.07 4k; edit $0.039",
+            resolutions=["1k", "2k", "4k"]),
+            _fal(
+            "openai/gpt-image-2.5/sunburst/text-to-image", "openai/gpt-image-2.5/sunburst/edit", 16,
+            "image_size_preset", _FAL_WH, {"quality": "medium", "num_images": 1, "output_format": "png"},
+            {"prompt", "image_urls", "image_size", "quality", "num_images", "output_format",
+             "sync_mode"}, "see fal.ai/models")],
+    },
+    "flux-3": {
+        "display": "FLUX.3 (Black Forest Labs)",
+        "strengths": "newest FLUX: detailed composition and typography, photorealism; up to 10 "
+        "references; 1k to 4k",
+        # Unlike FLUX.2, FLUX.3 takes a ratio string (not pixels) on both lanes.
+        "routes": [_ws(
+            "black-forest-labs/flux-3/text-to-image", "black-forest-labs/flux-3/image-edit", 10,
+            "aspect_ratio", _WS_RATIO_ALL, {"output_format": "png"},
+            {"prompt", "images", "aspect_ratio", "resolution", "output_format"},
+            "$0.05/image (1k); $0.12 2k, $0.65 4k", resolutions=["1k", "2k", "4k"]),
+            _fal(
+            "blackforestlabs/flux-3/text-to-image", "blackforestlabs/flux-3/edit-image", 10,
+            "aspect_ratio", _RATIO_PRO, {"output_format": "png"},
+            {"prompt", "image_urls", "aspect_ratio", "resolution", "output_format", "seed",
+             "sync_mode"}, "$0.024/MP")],
     },
 }
 
@@ -344,6 +400,23 @@ def _ws_veo(prefix, resolutions, price):
             aspects=a, resolutions=resolutions))   # no duration control on reference-to-video
 
 
+def _ws_kling_turbo(prefix, price):
+    # Kling 3.0 Turbo: start frame only (no end frame), no audio toggle, no references.
+    d = list(range(3, 16))
+    return _ws_vroute(price,
+        t2v=_ws_ep(f"{prefix}/text-to-video", aspects=VIDEO_ASPECTS, durations=d),
+        i2v=_ws_ep(f"{prefix}/image-to-video", media={"start_frame_image": "image"},
+            media_scalar=("image",), durations=d, requires=("start_frame_image",)))
+
+
+def _kling_turbo(prefix, price):
+    d = list(range(3, 16))
+    return _vroute(price=price,
+        t2v=_ep(f"{prefix}/text-to-video", aspects=VIDEO_ASPECTS, durations=d),
+        i2v=_ep(f"{prefix}/image-to-video", media={"start_frame_image": "image_url"},
+            durations=d, requires=("start_frame_image",)))
+
+
 def _one(display, strengths, route, *more):
     """One alias: agent-facing metadata plus its ordered routes (wavespeed first, then fal)."""
     return {"display": display, "strengths": strengths, "routes": [route, *more]}
@@ -493,6 +566,74 @@ VIDEO_MODELS = {
             r2v=_ep("fal-ai/wan/v2.7/reference-to-video",
                     media={"reference_images": "reference_image_urls", "reference_videos": "reference_video_urls"},
                     aspects=VIDEO_ASPECTS, durations=list(range(2, 11)), resolutions=["720p", "1080p"]))),
+    "kling-3.0-turbo-pro": _one("Kling 3.0 Turbo Pro (Kuaishou)",
+        "fast, low-cost 1080p Kling; text or start frame (no end frame, no audio)",
+        _ws_kling_turbo("kwaivgi/kling-v3-turbo-pro", "$0.14/s"),
+        _kling_turbo("fal-ai/kling-video/v3/turbo/pro", "$0.14/s")),
+    "kling-3.0-turbo-standard": _one("Kling 3.0 Turbo Standard (Kuaishou)",
+        "cheapest Kling, 720p; text or start frame (no end frame, no audio)",
+        _ws_kling_turbo("kwaivgi/kling-v3-turbo-std", "$0.112/s"),
+        _kling_turbo("fal-ai/kling-video/v3/turbo/standard", "$0.112/s")),
+    "gemini-omni-1.1": _one("Gemini Omni 1.1 Flash (Google)",
+        "newer, cheaper Gemini Omni: native audio, start or start+end frame, up to 10 image and 3 "
+        "video references; 720p to 4k",
+        _ws_vroute("$0.10/s at 720p ($0.15 1080p, $0.30 4k)",
+            max_refs={"reference_images": 10, "reference_videos": 3},
+            t2v=_ws_ep("google/gemini-omni-1.1-flash/text-to-video", aspects=VIDEO_ASPECTS,
+                       durations=list(range(3, 11)), resolutions=["720p", "1080p", "4k"]),
+            i2v=_ws_ep("google/gemini-omni-1.1-flash/image-to-video", media=_WS_FRAMES,
+                       media_scalar=_WS_FRAME_SCALAR, aspects=VIDEO_ASPECTS,
+                       durations=list(range(3, 11)), resolutions=["720p", "1080p", "4k"],
+                       requires=("start_frame_image",)),
+            r2v=_ws_ep("google/gemini-omni-1.1-flash/reference-to-video",
+                       media={"reference_images": "images", "reference_videos": "reference_videos"},
+                       aspects=VIDEO_ASPECTS, durations=list(range(3, 11)),
+                       resolutions=["720p", "1080p", "4k"])),
+        _vroute(max_refs={"reference_images": 10, "reference_videos": 3}, price="see fal.ai/models",
+            t2v=_ep("google/gemini-omni-flash/v1.1/text-to-video", aspects=VIDEO_ASPECTS,
+                    durations=list(range(3, 11)), resolutions=["720p", "1080p", "4k"]),
+            i2v=_ep("google/gemini-omni-flash/v1.1/image-to-video",
+                    media={"start_frame_image": "image_url", "end_frame_image": "end_image_url"},
+                    aspects=VIDEO_ASPECTS, durations=list(range(3, 11)),
+                    resolutions=["720p", "1080p", "4k"], requires=("start_frame_image",)),
+            r2v=_ep("google/gemini-omni-flash/v1.1/reference-to-video",
+                    media={"reference_images": "image_urls", "reference_videos": "reference_video_urls"},
+                    aspects=VIDEO_ASPECTS, durations=list(range(3, 11)),
+                    resolutions=["720p", "1080p", "4k"]))),
+    "wan-3.0": _one("Wan 3.0 (Alibaba)",
+        "newest Wan: up to 30s, native audio, start+end frame, up to 10 image, 5 video and 5 audio "
+        "references; 480p to 1080p",
+        # Same reach on both lanes; only the audio toggle's name differs (`generate_audio` / `audio`).
+        # fal defaults to 1080p and prompt expansion on; WaveSpeed to 720p and off. fal is pinned to
+        # WaveSpeed's defaults so an unset field means the same video on either lane.
+        _ws_vroute("$0.10/s at 720p ($0.05 480p, $0.20 1080p)", audio_param="generate_audio",
+            max_refs={"reference_images": 10, "reference_videos": 5, "reference_audios": 5},
+            t2v=_ws_ep("alibaba/wan-3.0/text-to-video", aspects=VIDEO_ASPECTS,
+                       durations=list(range(2, 31)), resolutions=["480p", "720p", "1080p"]),
+            i2v=_ws_ep("alibaba/wan-3.0/image-to-video", media=_WS_FRAMES,
+                       media_scalar=_WS_FRAME_SCALAR, aspects=VIDEO_ASPECTS,
+                       durations=list(range(2, 31)), resolutions=["480p", "720p", "1080p"],
+                       requires=("start_frame_image",)),
+            r2v=_ws_ep("alibaba/wan-3.0/reference-to-video",
+                       media={"reference_images": "reference_images", "reference_videos": "reference_videos",
+                              "reference_audios": "reference_audios"},
+                       aspects=VIDEO_ASPECTS, durations=list(range(2, 31)),
+                       resolutions=["480p", "720p", "1080p"])),
+        _vroute(audio_param="audio", price="$0.05/s at 480p; see fal.ai/models",
+            defaults={"resolution": "720p", "enable_prompt_expansion": False},
+            max_refs={"reference_images": 10, "reference_videos": 5, "reference_audios": 5},
+            t2v=_ep("alibaba/wan-3.0/text-to-video", aspects=VIDEO_ASPECTS,
+                    durations=list(range(2, 31)), resolutions=["480p", "720p", "1080p"]),
+            i2v=_ep("alibaba/wan-3.0/image-to-video",
+                    media={"start_frame_image": "start_image_url", "end_frame_image": "end_image_url"},
+                    aspects=VIDEO_ASPECTS, durations=list(range(2, 31)),
+                    resolutions=["480p", "720p", "1080p"], requires=("start_frame_image",)),
+            r2v=_ep("alibaba/wan-3.0/reference-to-video",
+                    media={"reference_images": "reference_image_urls",
+                           "reference_videos": "reference_video_urls",
+                           "reference_audios": "reference_audio_urls"},
+                    aspects=VIDEO_ASPECTS, durations=list(range(2, 31)),
+                    resolutions=["480p", "720p", "1080p"]))),
 }
 
 # audio: standalone audio deliverables. `type` selects the mode.
@@ -530,6 +671,14 @@ AUDIO_MODELS = {
         "price": "~$0.10/1K chars (half the others)",
         "types": ["speech"],
         "routes": [_route("elevenlabs", "eleven_flash_v2_5", supports=_EL_SUPPORTS)],
+    },
+    "eleven-v4": {
+        "display": "Eleven v4 (ElevenLabs)",
+        "strengths": "newest ElevenLabs model: fast and most emotive delivery; 90+ languages; "
+        "10,000 characters per request",
+        "price": "~$0.20/1K chars",
+        "types": ["speech"],
+        "routes": [_route("elevenlabs", "eleven_v4", supports=_EL_SUPPORTS)],
     },
 }
 
@@ -980,7 +1129,7 @@ if __name__ == "__main__":
             assert [r["provider"] for r in _rs] == ["wavespeed", "fal"], (_cap, _m, _rs)
             assert all(r.get("price") for r in _rs), f"{_cap}/{_m} route missing a price"
     assert default_model("video") == "seedance-2.0-fast"
-    assert len(VIDEO_MODELS) == 12 and len(IMAGE_MODELS) == 8
+    assert len(VIDEO_MODELS) == 16 and len(IMAGE_MODELS) == 11
 
     # ---- fal endpoint resolution is unchanged ----
     _sd = routes_of("video", "seedance-2.0")[1]
@@ -1059,6 +1208,36 @@ if __name__ == "__main__":
     assert routes_of("video", "seedance-2.0")[0]["max_refs"]["reference_images"] == 9
     assert routes_of("video", "seedance-2.0-mini")[1]["endpoints"]["i2v"]["aspects"] == VIDEO_ASPECTS
 
+    # ---- the 2026-10 additions ----
+    # Kling 3.0 Turbo: start frame only, no audio toggle, no references, on both lanes
+    for _m in ("kling-3.0-turbo-pro", "kling-3.0-turbo-standard"):
+        for _r in routes_of("video", _m):
+            assert video_media_kinds(_r) == {"start_frame_image"}, (_m, _r["provider"])
+            assert _r["audio_param"] is None and not _r["max_refs"], (_m, _r["provider"])
+            assert video_endpoint_for(_r, set())["id"].endswith("text-to-video"), (_m, _r["provider"])
+            assert video_endpoint_for(_r, {"start_frame_image"})["id"].endswith("image-to-video")
+            assert video_endpoint_for(_r, {"start_frame_image", "end_frame_image"}) is None
+    # Gemini Omni 1.1 and Wan 3.0: start+end rides image-to-video, references their own endpoint
+    for _m in ("gemini-omni-1.1", "wan-3.0"):
+        for _r in routes_of("video", _m):
+            assert video_endpoint_for(_r, {"start_frame_image", "end_frame_image"})["id"].endswith(
+                "image-to-video"), (_m, _r["provider"])
+            assert video_endpoint_for(_r, {"reference_images", "reference_videos"})["id"].endswith(
+                "reference-to-video"), (_m, _r["provider"])
+            assert video_endpoint_for(_r, set())["id"].endswith("text-to-video"), (_m, _r["provider"])
+    assert [r["audio_param"] for r in routes_of("video", "gemini-omni-1.1")] == [None, None]
+    _wwan3, _fwan3 = routes_of("video", "wan-3.0")
+    assert (_wwan3["audio_param"], _fwan3["audio_param"]) == ("generate_audio", "audio")
+    assert _fwan3["defaults"] == {"resolution": "720p", "enable_prompt_expansion": False}
+    assert _wwan3["endpoints"]["t2v"]["durations"] == list(range(2, 31))
+    # FLUX.3 takes a ratio string on both lanes (FLUX.2 takes pixels on WaveSpeed)
+    for _r in routes_of("image", "flux-3"):
+        assert _r["size_style"] == "aspect_ratio" and _r["sizes"]["4:5"] == "4:5", _r["provider"]
+    assert routes_of("image", "nano-banana-2.1")[0]["resolutions"] == ["1k", "2k", "4k"]
+    _wg25, _fg25 = routes_of("image", "gpt-image-2.5")
+    assert "sunburst" in _wg25["id"] and set(_fg25["sizes"]) == set(_wg25["sizes"]) == set(IMAGE_ASPECTS)
+    assert _fg25["sizes"]["4:5"] == {"width": 896, "height": 1120}
+
     # ---- image routes: the edit endpoint's narrower surface, and FLUX's pixel sizes ----
     _wgrok = routes_of("image", "grok-imagine")[0]
     assert _wgrok["ref_scalar"] and _wgrok["ref_param"] == "image" and _wgrok["max_refs"] == 1
@@ -1076,7 +1255,8 @@ if __name__ == "__main__":
     assert all("voices" not in m for m in list_models("audio"))
     _listing = audio_models_listing()
     assert _listing["default"] == "eleven-v3" and _listing["types"] == AUDIO_TYPES
-    assert len(_listing["models"]) == 3
+    assert len(_listing["models"]) == 4
+    assert routes_of("audio", "eleven-v4")[0]["id"] == "eleven_v4"
     # voices moved to their own tool — the models payload must not carry them at all
     assert "voices" not in _listing and "list_voices" in _listing["voices_note"]
     assert list_models("audio", "long-form")[0]["model"] == "eleven-multilingual-v2"

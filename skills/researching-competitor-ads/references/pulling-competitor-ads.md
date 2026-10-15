@@ -39,6 +39,13 @@ count, verification and country.
   a category that matches what the user described → take it, and say in one line which page you took.
 - **Nothing is obvious** → show the candidates and let the user pick.
 
+**Resolve every competitor's page id before the first `company_ads` pull.** A `search_companies`
+call after any pull starts a new run in a new folder, and the ledger script reads only the folders it
+is given — so resolving the next competitor halfway through silently leaves the first one out of the
+analysis. Where you must search again after a pull (Step 2 found the wrong page), pass
+`build_ledger.py` the right pages' response files from each folder, never the wrong page's pull, and
+keep the first response's `saved.output_dir` as `--out`.
+
 **Always send a page id.** Neither `pageId` nor `companyName` is marked required, so a call with
 neither passes validation, goes out, and bills for nothing useful.
 

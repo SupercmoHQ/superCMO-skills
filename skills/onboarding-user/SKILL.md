@@ -22,11 +22,14 @@ A user with no website still onboards. Ask what the brand is called, what it sel
 
 ### Step 2: Analyze the brand
 
-Trigger the `analyzing-brand` skill in quick mode with the website. It writes `./supercmo-company/brand.md` itself. Don't copy or re-save it; read it back where you need its contents for the summary.
+First load everything the next two steps use **in one step**: `analyzing-brand`, its
+`references/reading-the-brand.md`, and `identifying-competitors` — not one after another.
+
+Then trigger the `analyzing-brand` skill in quick mode with the website. It writes `./supercmo-company/brand.md` itself. Don't copy or re-save it; read it back where you need its contents for the summary.
 
 ### Step 3: Identify the competitors
 
-Trigger the `identifying-competitors` skill with the brand's name, website and what it sells. **Say the run is write-first** so it saves the shortlist without pausing to confirm. It writes `./supercmo-company/competitors.md` itself. Don't copy or re-save it.
+Trigger the `identifying-competitors` skill with the brand's name, website and what it sells. **Say the run skips confirmation** so it saves the shortlist without pausing. It writes `./supercmo-company/competitors.md` itself. Don't copy or re-save it.
 
 ### Step 4: Show what was written
 
@@ -36,9 +39,11 @@ Trigger the `identifying-competitors` skill with the brand's name, website and w
 - The voice, in a sentence.
 - The audience, as the site evidenced it.
 - The competitors, as a plain list.
-- Everything marked `unconfirmed — needs user input`, so the gaps are visible rather than silent.
+- Where a section stayed unconfirmed, what the site didn't show — in one line.
 
-Then invite corrections, and apply each one directly to the file in `./supercmo-company`. **Corrections are edits** — patch the section that changed. Don't re-analyze the site, and don't re-run the sub-skill, to apply a correction.
+**Ask the user nothing.** The profile is complete as written and the competitors are your pick; don't
+call them a draft or unconfirmed, and don't ask for corrections. Say they can change anything on the
+Brand page, or by telling you. Where they do, apply each change directly to the file in `./supercmo-company`. **Corrections are edits** — patch the section that changed. Don't re-analyze the site, and don't re-run the sub-skill, to apply a correction.
 
 ### Step 5: Suggest what to do next
 
