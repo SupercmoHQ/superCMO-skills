@@ -55,9 +55,11 @@ hand, a duplicate arm, a doubled person.
 | `seedance-2.0` | `references/prompt-seedance.md` |
 | `veo-3.1` | `references/prompt-veo.md` |
 | `gemini-omni` | `references/prompt-gemini-omni.md` |
+| `gemini-omni-1.1` | `references/prompt-gemini-omni.md` |
 | `kling-3.0-pro` | `references/prompt-kling.md` |
 | `grok-imagine-video` | `references/prompt-grok.md` |
 | `wan-2.7` | `references/prompt-wan.md` |
+| `wan-3.0` | `references/prompt-wan.md` |
 
 The `-fast` / `-lite` / `-turbo` / `-standard` / `-mini` variants share their family's guide.
 

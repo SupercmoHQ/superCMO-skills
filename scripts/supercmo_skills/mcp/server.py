@@ -25,7 +25,7 @@ if telemetry is not None:
 _GEN_TOOLS = {"image_generate", "video_generate", "text_to_speech", "url_extraction", "image_analysis"}
 
 SERVER_NAME = "supercmo"
-SERVER_VERSION = "0.1.24"
+SERVER_VERSION = "0.1.25"
 DEFAULT_PROTOCOL = "2025-06-18"
 
 
@@ -85,7 +85,8 @@ def handle(msg):
             except Exception:
                 pass
         return _result(req_id, {
-            "content": [{"type": "text", "text": json.dumps(out, indent=2)}],
+            "content": [{"type": "text",
+                         "text": json.dumps(out, indent=2, ensure_ascii=False).encode("utf-8", "replace").decode()}],
             "isError": not out.get("ok", False),
         })
 
