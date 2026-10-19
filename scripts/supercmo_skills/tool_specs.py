@@ -24,7 +24,7 @@ IMAGE_GENERATE_DESCRIPTION = (
     "Images are polled for you; a heavy image (large model / 4k / big batch) that runs long returns "
     "`{status:\"pending\", ...}` (a job handle, not an error) — pass that exact handle to `job_status` "
     "to retrieve it, and never re-submit a pending image. Set dry_run=true "
-    "to preview the exact requests and cost without generating (no credits spent)."
+    "to preview the exact requests without generating (no credits spent)."
     "Each entry in `results` is one of three things: finished media; a "
     "`{status:\"pending\", ...}` job handle to rejoin with job_status; or a failure carrying "
     "`ok: false` and an `error`. A failed entry is terminal — report its `error` and never "
