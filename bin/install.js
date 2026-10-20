@@ -275,7 +275,10 @@ function runInstall(hosts, opts) {
     }
   }
   console.log(`
-Installed. Run the supercmo-setup skill to finish setup`);
+Installed. Run the supercmo-setup skill to finish setup
+
+SuperCMO's MCP server sends anonymous usage counts (tool, ok/fail, model; never prompts, files or keys).
+Turn off: add SUPERCMO_TELEMETRY=false to ~/.supercmo/.env · Details: https://github.com/SupercmoHQ/superCMO-skills/blob/main/TELEMETRY.md`);
   return failures;
 }
 
