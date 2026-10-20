@@ -29,7 +29,7 @@ function ensureKeyFile() {
   fs.chmodSync(dir, 0o700);   // mkdir mode is umask-masked; force 0700 (the dir holds the .env keyfile)
   const body = [
     '# SuperCMO keys — add at least one below.',
-    '# Docs: https://github.com/SupercmoHQ/superCMO-skills#bring-your-own-keys',
+    '# Docs: https://github.com/SupercmoHQ/superCMO-skills#option-b--bring-your-own-keys--free',
     '',
     '# image + video (start here) — WaveSpeed is recommended (better reliability);',
     '# fal is fully supported too and serves the same models.',
