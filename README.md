@@ -114,7 +114,7 @@ npx --yes github:SupercmoHQ/superCMO-skills --all   # every detected host
 
 Run the **supercmo-setup** skill or ask your agent to "set me up".
 
-Prefer a preview before spending? Every generation supports `dry_run` — the exact request and cost, no API call.
+Prefer a preview before spending? Every generation supports `dry_run` — the exact request, no API call.
 
 ---
 
@@ -348,8 +348,9 @@ Found something off? [Open an issue](https://github.com/SupercmoHQ/superCMO-skil
 SuperCMO sends **anonymous, opt-out** usage counts from the MCP server so we can see which tools get
 used and prioritize. Full details in [`TELEMETRY.md`](TELEMETRY.md).
 
-* **What we send:** the tool name, whether it succeeded, how long it took, versions (OS / Python /
-  SuperCMO), and a random install id. Nothing else.
+* **What we send:** the tool name, whether it succeeded, how long it took, the model and provider,
+  whether it used your own key or SuperCMO's, an error code if it failed, versions (OS / Python /
+  SuperCMO), and a random install id. The full list is in [`TELEMETRY.md`](TELEMETRY.md).
 * **What we NEVER send:** your prompts, tool arguments, generated media, file paths, keys, hostname,
   username, or IP address.
 * **Turn it off** (any one): `SUPERCMO_TELEMETRY=false`, `DO_NOT_TRACK=1`, or `DISABLE_TELEMETRY=1`.
