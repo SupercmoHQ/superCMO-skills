@@ -3,10 +3,10 @@
   "version": "0.1.27",
   "description": "Install the SuperCMO plugin (MCP server + skills + command) into any popular AI-agent host.",
   "bin": {
-    "supercmo-install": "bin/install.js"
+    "supercmo-install": "installer/install.js"
   },
   "files": [
-    "bin/",
+    "installer/",
     "skills/",
     "commands/"
   ],
@@ -16,7 +16,7 @@
   "license": "Apache-2.0",
   "repository": "https://github.com/SupercmoHQ/superCMO-skills",
   "scripts": {
-    "test": "node --test bin/lib/*.test.js",
+    "test": "node --test installer/lib/*.test.js",
     "prepublishOnly": "python3 scripts/quick_validate.py"
   }
 }

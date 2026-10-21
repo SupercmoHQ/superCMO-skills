@@ -40,7 +40,7 @@ FILES = [
     "scripts/supercmo_skills/mcp/server.py",
     "README.md",
     "skills/supercmo-setup/SKILL.md",
-    "bin/install.js",
+    "installer/install.js",
     "scripts/supercmo_env.py",
     "scripts/supercmo_skills/client.py",
     "scripts/supercmo_skills/readiness.py",

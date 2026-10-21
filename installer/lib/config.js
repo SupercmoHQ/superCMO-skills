@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Package root = two levels up from bin/lib/.
+// Package root = two levels up from installer/lib/.
 const PLUGIN_ROOT = path.resolve(__dirname, '..', '..');
 const SERVER_NAME = 'supercmo';
 // The MCP server runs from PyPI via `uvx supercmo-skills@<version>` — pinned to this installer's
