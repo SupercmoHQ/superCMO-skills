@@ -115,7 +115,7 @@ def _setup_hint(capability, model):
             keys.append(provider.BYOK_ENV)
     byo = " or ".join(keys) if keys else "a vendor key"
     return ("No key for this yet. Two options: (A) Managed — run "
-            "`npx --yes github:SupercmoHQ/superCMO-skills login` to sign in and pay per use; or "
+            "`npx --yes @supercmo/skills@0.1.27 login` to sign in and pay per use; or "
             f"(B) bring your own {byo} — add it to ~/.supercmo/.env. Then retry. A key is required "
             "to generate. Ask the user which option they want; don't run login unless they choose managed.")
 

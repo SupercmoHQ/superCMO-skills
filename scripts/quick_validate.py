@@ -16,7 +16,7 @@ import json
 try:
     import yaml
 except ImportError:
-    sys.exit("quick_validate requires PyYAML — run: pip install pyyaml")
+    sys.exit("quick_validate requires PyYAML — run: pip install pyyaml==6.0.3")
 
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 RESERVED = ("claude", "anthropic")

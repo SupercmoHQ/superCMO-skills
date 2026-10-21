@@ -4,7 +4,7 @@
 copy of the key list must stay in lockstep, or a new provider's key silently goes missing from a
 distribution channel (exactly how WAVESPEED_API_KEY was absent from server.json + mcpb):
 
-  - bin/lib/config.js   ensureKeyFile()          — the `~/.supercmo/.env` placeholders a user fills in
+  - installer/lib/config.js   ensureKeyFile()          — the `~/.supercmo/.env` placeholders a user fills in
   - server.json         environmentVariables     — the MCP-registry listing metadata
   - mcpb/manifest.json  server.mcp_config.env    — the Claude Desktop / Smithery bundle bindings
 
@@ -31,10 +31,10 @@ def env_template_keys():
     # line, e.g. 'FAL_KEY='. That `'KEY='` shape is unique to the template in config.js, so a
     # whole-file scan is unambiguous and dependency-free. If another `'KEY='` literal is ever added
     # elsewhere in config.js, scope this to the ensureKeyFile() body instead.
-    src = open(os.path.join(ROOT, "bin", "lib", "config.js"), encoding="utf-8").read()
+    src = open(os.path.join(ROOT, "installer", "lib", "config.js"), encoding="utf-8").read()
     keys = set(re.findall(r"""['"]([A-Z][A-Z0-9_]*)=['"]""", src))
     if not keys:
-        print("✗ check_catalog_sync: no 'KEY=' placeholders found in bin/lib/config.js ensureKeyFile()")
+        print("✗ check_catalog_sync: no 'KEY=' placeholders found in installer/lib/config.js ensureKeyFile()")
         raise SystemExit(1)
     return keys
 
@@ -57,7 +57,7 @@ def main():
     reg = registry_keys()
     # Each surface that carries a copy of the BYOK key list, and its extractor.
     surfaces = [
-        ("bin/lib/config.js ensureKeyFile()", env_template_keys),
+        ("installer/lib/config.js ensureKeyFile()", env_template_keys),
         ("server.json environmentVariables", server_json_keys),
         ("mcpb/manifest.json server.mcp_config.env", mcpb_keys),
     ]

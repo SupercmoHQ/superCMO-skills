@@ -38,7 +38,7 @@ _DEPS_HINT = {
     "error": "calendar_deps_missing",
     "hint": "the calendar tools need icalendar + python-dateutil (bundled with every pip/uvx "
             "install of supercmo-skills; a vendored no-install copy lacks them — pip install "
-            "icalendar python-dateutil)",
+            "icalendar==7.3.0 python-dateutil==2.9.0.post0)",
 }
 
 

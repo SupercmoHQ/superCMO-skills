@@ -38,6 +38,12 @@ FILES = [
     "gemini-extension.json",
     "mcpb/manifest.json",
     "scripts/supercmo_skills/mcp/server.py",
+    "README.md",
+    "skills/supercmo-setup/SKILL.md",
+    "installer/install.js",
+    "scripts/supercmo_env.py",
+    "scripts/supercmo_skills/client.py",
+    "scripts/supercmo_skills/readiness.py",
 ]
 
 _V = r"\d+\.\d+\.\d+(?:[-.+][0-9A-Za-z.]+)?"
@@ -49,6 +55,7 @@ RULES = [
     re.compile(r'(^version = ")(' + _V + r')(")', re.M),    # pyproject.toml
     re.compile(r'(SERVER_VERSION = ")(' + _V + r')(")'),    # server.py
     re.compile(r'(supercmo-skills@)(' + _V + r')()'),       # uvx pins (empty suffix group)
+    re.compile(r'(@supercmo/skills@)(' + _V + r')()'),      # npx installer pins
 ]
 
 

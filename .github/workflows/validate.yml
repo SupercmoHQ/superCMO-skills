@@ -74,7 +74,7 @@ jobs:
         run: python3 tests/evals/run_eval.py
 
   js-tests:
-    # The npx installer suite (bin/lib/*.test.js) — defined in package.json, never run in CI until now.
+    # The npx installer suite (installer/lib/*.test.js) — defined in package.json, never run in CI until now.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -82,4 +82,4 @@ jobs:
         with:
           node-version: "24"   # Active LTS (Node 20 is EOL)
       - name: JS installer tests (blocking)
-        run: npm test   # node --test bin/lib/*.test.js — zero deps, no install step needed
+        run: npm test   # node --test installer/lib/*.test.js — zero deps, no install step needed

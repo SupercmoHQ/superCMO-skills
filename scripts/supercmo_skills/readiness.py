@@ -52,14 +52,14 @@ def status(check=False):
         "managed": {
             "env_var": "SUPERCMO_API_KEY",
             "set": managed,
-            "setup": "run `npx --yes github:SupercmoHQ/superCMO-skills login` (opens getsupercmo.ai to sign in + authorize; writes the key)",
+            "setup": "run `npx --yes @supercmo/skills@0.1.27 login` (opens getsupercmo.ai to sign in + authorize; writes the key)",
             "note": "managed metered proxy — generate on SuperCMO's keys, pay per use (optional; BYOK needs no key)",
         },
         "capabilities": capabilities,
         "configured": configured,
         "hint": (
             "No key set. Two options: (A) Managed — run "
-            "`npx --yes github:SupercmoHQ/superCMO-skills login` to sign in and pay per use; or "
+            "`npx --yes @supercmo/skills@0.1.27 login` to sign in and pay per use; or "
             "(B) bring your own keys (free) — add a vendor key to ~/.supercmo/.env "
             "(e.g. FAL_KEY=your-key). Let the user pick; don't run login unless they choose managed. Then retry."
             if not configured

@@ -8,9 +8,7 @@ delivery artifact: what a user uploads via Claude Cowork / desktop
 attaches to each GitHub Release.
 
 It bundles every runtime plugin component and excludes dev-only files. It also
-excludes the top-level `bin/` (the npx installer) and `package.json`:
-claude.ai-hosted plugins forbid a top-level `bin/` (executables on PATH with no
-approval surface), so the uploaded bundle must not contain it.
+excludes the npx installer (`installer/`) and `package.json`, which only npx uses.
 """
 import os
 import sys
@@ -20,13 +18,14 @@ import zipfile
 import tempfile
 
 # Top-level entries that make up the installable plugin — everything the plugin
-# needs at runtime, and NOT bin/ or package.json (see the module docstring).
+# needs at runtime, and NOT installer/ or package.json (see the module docstring).
 PLUGIN_ENTRIES = [
     ".claude-plugin",   # plugin.json / marketplace.json
     # NOT .supercmo-plugin: that manifest is for the hosted SuperCMO host (like
     # .codex-plugin is for Codex). Claude never reads it, so it stays out of this bundle.
     ".mcp.json",        # declares the supercmo MCP server (uvx supercmo-skills@<version> from PyPI)
     "skills",           # the skills (markdown the agent loads; tools come from the uvx server)
+    "assets",           # logo.png, the directory listing icon plugin.json names
     "LICENSE",          # Apache-2.0 (redistribution)
     "NOTICE",           # Apache-2.0 NOTICE (redistribution)
 ]
