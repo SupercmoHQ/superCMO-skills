@@ -145,7 +145,7 @@ def resolve_vendor_route(*byok_vars):
     if key:
         return "proxy", key
     hint = ("No key set. Two options: (A) Managed — run "
-            "`npx --yes github:SupercmoHQ/superCMO-skills login` to sign in and pay per use; or "
+            "`npx --yes @supercmo/skills@0.1.27 login` to sign in and pay per use; or "
             f"(B) bring your own {' or '.join(byok_vars)} — add it to ~/.supercmo/.env. "
             "Ask the user which option they want; don't run login unless they choose managed. Then try again.")
     return "none", hint

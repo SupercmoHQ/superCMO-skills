@@ -28,7 +28,7 @@ First time through, nothing is set up: go straight to Step 2. Where a working se
 **The managed key is the default** — one command, one key covering every capability, pay per use. Set it up unless the user has specifically asked to bring their own keys; don't raise the bring-your-own route yourself.
 
 ```bash
-npx --yes github:SupercmoHQ/superCMO-skills login
+npx --yes @supercmo/skills@0.1.27 login
 ```
 
 It opens SuperCMO in your browser to sign in and authorize this device; the key is written to `~/.supercmo/.env` automatically. Buy credits in the web app (no card needed to sign in). Run it for the user once they're ready — it needs their sign-in.
@@ -68,7 +68,7 @@ Close with this list:
 
 ## Edge cases
 
-- **`setup_status` isn't available and nothing generates** → the skills were installed without the MCP server. Reinstall with `npx --yes github:SupercmoHQ/superCMO-skills --claude` (or `--cursor`, `--codex`, `--all`), which wires both.
+- **`setup_status` isn't available and nothing generates** → the skills were installed without the MCP server. Reinstall with `npx --yes @supercmo/skills@0.1.27 --claude` (or `--cursor`, `--codex`, `--all`), which wires both.
 - **A probe fails on a key that is set** → the vendor rejected it: expired, revoked, or from the wrong product. Name the vendor and have them re-issue it; don't retry.
 - **The user asks which lane is better** → managed is fastest to working and pay-per-use; their own keys go straight to the vendor, but they would need to manage multiple keys with different vendors and ensure each has sufficient balance. Both are fully supported. It is their call.
 - **The user only wants one capability** — just voiceover, just images → set up that key alone and say plainly which capabilities stay blocked.

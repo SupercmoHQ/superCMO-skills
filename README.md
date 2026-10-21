@@ -22,7 +22,7 @@ Just provide a product photo and a brief. The agent extracts the product details
 [`uv`](https://docs.astral.sh/uv/getting-started/installation/)):
 
 ```bash
-npx --yes github:SupercmoHQ/superCMO-skills --all
+npx --yes @supercmo/skills@0.1.27 --all
 ```
 
 For Cursor, run it in your project with `--cursor --project-dir .` so the skills land there too.
@@ -103,13 +103,13 @@ The best part? You stay in charge all along.
 **Paste this to your coding agent** (Cursor, Codex, …):
 
 ```
-Run `npx --yes github:SupercmoHQ/superCMO-skills --all`. Once it's installed, run the supercmo-setup skill to complete the setup.
+Run `npx --yes @supercmo/skills@0.1.27 --all`. Once it's installed, run the supercmo-setup skill to complete the setup.
 ```
 
 Prefer to run it yourself:
 
 ```bash
-npx --yes github:SupercmoHQ/superCMO-skills --all   # every detected host
+npx --yes @supercmo/skills@0.1.27 --all   # every detected host
 ```
 
 Run the **supercmo-setup** skill or ask your agent to "set me up".
@@ -250,10 +250,10 @@ run or contribute to the skills.
 **npx installer** - registers the MCP server via each host's own mechanism (`codex`/`claude mcp add` where a CLI exists; a `.cursor/mcp.json` for Cursor) and places the skills. One command does every detected host:
 
 ```bash
-npx --yes github:SupercmoHQ/superCMO-skills --claude               # Claude Code
-npx --yes github:SupercmoHQ/superCMO-skills --cursor --project-dir .  # Cursor (per project)
-npx --yes github:SupercmoHQ/superCMO-skills --codex                # Codex
-npx --yes github:SupercmoHQ/superCMO-skills --all                  # every detected host
+npx --yes @supercmo/skills@0.1.27 --claude               # Claude Code
+npx --yes @supercmo/skills@0.1.27 --cursor --project-dir .  # Cursor (per project)
+npx --yes @supercmo/skills@0.1.27 --codex                # Codex
+npx --yes @supercmo/skills@0.1.27 --all                  # every detected host
 ```
 
 If the SuperCMO tools don't show up in your agent afterward, restart it once.
@@ -276,12 +276,12 @@ codex plugin add supercmo@superCMO-skills
 [latest release](https://github.com/SupercmoHQ/superCMO-skills/releases), then
 **Settings → Plugins → Upload local plugin**.
 
-**Found us on [skills.sh](https://skills.sh)?** `npx skills add SupercmoHQ/superCMO-skills` copies the
+**Found us on [skills.sh](https://skills.sh)?** `npx skills@1.7.4 add SupercmoHQ/superCMO-skills` copies the
 skills but **not the MCP server** they call — so `image_generate`/`video_generate` won't exist yet.
 Install the server, then reload your agent:
 
 ```bash
-npx --yes github:SupercmoHQ/superCMO-skills --all   # or --cursor --project-dir . · --codex · --all
+npx --yes @supercmo/skills@0.1.27 --all   # or --cursor --project-dir . · --codex · --all
 ```
 
 ## Set up a key
@@ -293,7 +293,7 @@ Generation needs a key. **Two ways — pick one:**
 Generate on **SuperCMO's keys, pay per use** — no vendor signups, nothing to paste.
 
 ```bash
-npx --yes github:SupercmoHQ/superCMO-skills login
+npx --yes @supercmo/skills@0.1.27 login
 ```
 
 Opens SuperCMO in your browser to **sign in and authorize this device**; the key is written to

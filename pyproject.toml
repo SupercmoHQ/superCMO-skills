@@ -1,6 +1,6 @@
 [project]
 name = "supercmo-skills"
-version = "0.1.26"
+version = "0.1.27"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 description = "SuperCMO media client (image, video, audio): stdlib-only routing over BYO-direct vendor keys or one managed SuperCMO key."
@@ -44,7 +44,7 @@ Homepage = "https://github.com/SupercmoHQ/superCMO-skills"
 Repository = "https://github.com/SupercmoHQ/superCMO-skills"
 Issues = "https://github.com/SupercmoHQ/superCMO-skills/issues"
 
-# The MCP server console entrypoint. Script name == distribution name so `uvx supercmo-skills`
+# The MCP server console entrypoint. Script name == distribution name so `uvx supercmo-skills@<version>`
 # resolves with no `--from` (the reference-server convention; server.json points at this).
 [project.scripts]
 supercmo-skills = "supercmo_skills.mcp:main"

@@ -22,7 +22,7 @@ import sys
 try:
     import yaml
 except ImportError:
-    sys.exit("sync_skills requires PyYAML — run: pip install pyyaml")
+    sys.exit("sync_skills requires PyYAML — run: pip install pyyaml==6.0.3")
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 README = os.path.join(REPO, "README.md")
