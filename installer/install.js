@@ -323,11 +323,11 @@ function loginVerificationUrl(value) {
 function loginErrorMessage(code, status) {
   switch (code) {
     case "expired_token":
-      return "the login request expired. Re-run `npx --yes @supercmo/skills@0.1.27 login`.";
+      return "the login request expired. Re-run `npx --yes @supercmo/skills@0.1.28 login`.";
     case "access_denied":
       return "the request was denied in the browser.";
     case "invalid_grant":
-      return "invalid or already-used login request. Re-run `npx --yes @supercmo/skills@0.1.27 login`.";
+      return "invalid or already-used login request. Re-run `npx --yes @supercmo/skills@0.1.28 login`.";
     default:
       return `login failed${code ? ` (${code})` : ` (HTTP ${status})`}.`;
   }
@@ -421,7 +421,7 @@ async function runLogin(_argv, deps = {}) {
     }
     throw new Error(loginErrorMessage(err.error, res.status));
   }
-  throw new Error("login timed out. Re-run `npx --yes @supercmo/skills@0.1.27 login`.");
+  throw new Error("login timed out. Re-run `npx --yes @supercmo/skills@0.1.28 login`.");
 }
 
 function main() {
